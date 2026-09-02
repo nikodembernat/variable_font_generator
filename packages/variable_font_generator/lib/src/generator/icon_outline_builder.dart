@@ -178,16 +178,15 @@ final class IconOutlineBuilder {
   ) => StrokeTemplate([
     for (final contour in template.contours)
       StrokeContourTemplate(
-        points: [
-          for (final point in contour.points)
-            StrokePointTemplate(
-              base: point.base,
-              direction: point.direction * halfWidth,
-              onCurve: point.onCurve,
-            ),
-        ],
+        points: [for (final point in contour.points) point.scaled(halfWidth)],
         behaviour: contour.behaviour,
         collapseTarget: contour.collapseTarget,
+        // The width a hole closes at is measured in the same units as the half
+        // width, so it moves the opposite way to the directions.
+        emptyAtHalfWidth: switch (contour.emptyAtHalfWidth) {
+          final width? when halfWidth != 0 => width / halfWidth,
+          _ => null,
+        },
       ),
   ]);
 }

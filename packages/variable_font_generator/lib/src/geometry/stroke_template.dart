@@ -32,6 +32,13 @@ final class StrokePointTemplate {
   /// The position of this point at [strokeScale].
   Vec2 at(double strokeScale) => base + direction * strokeScale;
 
+  /// Returns a copy whose [direction] is [factor] times as long.
+  StrokePointTemplate scaled(double factor) => StrokePointTemplate(
+    base: base,
+    direction: direction * factor,
+    onCurve: onCurve,
+  );
+
   @override
   String toString() => 'StrokePointTemplate($base + $direction * w)';
 }
@@ -112,6 +119,7 @@ final class StrokeContourTemplate {
     required this.points,
     this.behaviour = ContourFillBehaviour.unaffected,
     this.collapseTarget,
+    this.emptyAtHalfWidth,
   }) : assert(
          (behaviour != ContourFillBehaviour.collapse &&
                  behaviour != ContourFillBehaviour.shrink &&
@@ -133,6 +141,16 @@ final class StrokeContourTemplate {
   /// defined at every weight.
   final Vec2? collapseTarget;
 
+  /// The half width at which this contour stops enclosing anything, if it ever
+  /// does.
+  ///
+  /// A hole is only a hole while the shape around it is wider than the stroke.
+  /// Past that the two sides of the shape have met in the middle and the
+  /// contour is inside out, so it is pulled onto [collapseTarget] and left
+  /// there, where it punches nothing. See `Stroker`, which works out where that
+  /// happens.
+  final double? emptyAtHalfWidth;
+
   /// Whether filling closes this contour's hole.
   bool get collapsesWhenFilled => behaviour == ContourFillBehaviour.collapse;
 
@@ -153,10 +171,13 @@ final class StrokeContourTemplate {
             horizontalCentre + (point.x - horizontalCentre) * widthScale,
             point.y,
           );
-    Vec2 at(StrokePointTemplate point, double scale) =>
-        widen(point.base) + point.direction * scale;
-
     final target = collapseTarget == null ? null : widen(collapseTarget!);
+    final empty = emptyAtHalfWidth;
+    Vec2 at(StrokePointTemplate point, double scale) =>
+        empty != null && target != null && scale >= empty
+        ? target
+        : widen(point.base) + point.direction * scale;
+
     return Contour([
       for (final point in points)
         OutlinePoint(switch (behaviour) {
@@ -190,6 +211,7 @@ final class StrokeContourTemplate {
     points: points.reversed.toList(),
     behaviour: behaviour,
     collapseTarget: collapseTarget,
+    emptyAtHalfWidth: emptyAtHalfWidth,
   );
 
   /// Returns a copy with a different [behaviour].
@@ -200,6 +222,7 @@ final class StrokeContourTemplate {
     points: points,
     behaviour: newBehaviour,
     collapseTarget: target ?? collapseTarget,
+    emptyAtHalfWidth: emptyAtHalfWidth,
   );
 
   @override
@@ -281,6 +304,7 @@ final class StrokeTemplate {
           final target? => transform(target) + translation,
           null => null,
         },
+        emptyAtHalfWidth: contour.emptyAtHalfWidth,
       ),
   ]);
 

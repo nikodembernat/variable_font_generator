@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'package:meta/meta.dart';
 import 'package:variable_font_generator/src/geometry/bezier.dart';
 import 'package:variable_font_generator/src/geometry/path.dart';
-import 'package:variable_font_generator/src/geometry/polygon.dart';
 import 'package:variable_font_generator/src/geometry/stroke_style.dart';
 import 'package:variable_font_generator/src/geometry/stroke_template.dart';
 import 'package:variable_font_generator/src/geometry/vec2.dart';
@@ -24,6 +23,9 @@ typedef _SidePoint = ({Vec2 position, bool onCurve});
 /// A stretch of centre line between two cuts, and whether each of its ends is
 /// a cut rather than a real end of the artwork.
 typedef _Run = ({List<_Element> elements, bool startsAtCut, bool endsAtCut});
+
+/// The corner geometry of a join the stroke turns into, as a closed loop.
+typedef _Wedge = List<_SidePoint>;
 
 /// Converts stroked centre lines into filled outlines.
 ///
@@ -62,6 +64,12 @@ final class Stroker {
 
   /// The default [innerJoinLimit].
   static const defaultInnerJoinLimit = 2.0;
+
+  /// The half width the two sides of a closed sub path are told apart at.
+  ///
+  /// Small enough that no artwork is narrower than it, so that the side
+  /// enclosing more area is always the outer one.
+  static const _orientingHalfWidth = 1 / 64;
 
   /// How the ends of open sub paths are drawn.
   final StrokeCap cap;
@@ -188,6 +196,11 @@ final class Stroker {
               ),
             ),
           ),
+          for (final sign in const [1, -1])
+            ..._wedgesFromRuns(
+              (halfWidth, wedges) =>
+                  _openSide(run.elements, sign, halfWidth, wedges: wedges),
+            ),
         ]);
       }
       return template;
@@ -198,7 +211,14 @@ final class Stroker {
         (halfWidth) =>
             _openContour(elements, halfWidth, startCap: cap, endCap: cap),
       );
-      return StrokeTemplate([_orientSolid(contour)]);
+      return StrokeTemplate([
+        _orientSolid(contour),
+        for (final sign in const [1, -1])
+          ..._wedgesFromRuns(
+            (halfWidth, wedges) =>
+                _openSide(elements, sign, halfWidth, wedges: wedges),
+          ),
+      ]);
     }
 
     final first = _templateFromRuns(
@@ -208,98 +228,51 @@ final class Stroker {
       (halfWidth) => _closedSide(elements, -1, halfWidth),
     );
 
-    final firstArea = _templateArea(first);
-    final secondArea = _templateArea(second);
+    // Which side is which is read off a narrow stroke rather than the unit-wide
+    // one the sides were built at. A shape no wider than the stroke has both
+    // sides meeting in its middle, where neither encloses anything and there is
+    // nothing to tell them apart by; drawn thinly, every shape still has an
+    // inside.
+    final firstArea = _templateArea(first, at: _orientingHalfWidth);
+    final secondArea = _templateArea(second, at: _orientingHalfWidth);
     final outerIsFirst = firstArea.abs() >= secondArea.abs();
     final outer = outerIsFirst ? first : second;
-    final inner = outerIsFirst ? second : first;
-    if (filled || _hasSwallowedItsInside(elements, inner)) {
-      // Either the shape is painted, so it has no hole to begin with, or the
-      // stroke is thick enough to have covered the whole inside of it. Both
-      // mean a single solid contour: the outer boundary already covers the
-      // interior and the stroke together.
+    final inner = _stoppedWhenEmpty(outerIsFirst ? second : first);
+
+    if (filled) {
+      // The shape is painted, so it has no hole to begin with: one solid
+      // contour covering the interior and the stroke together.
       return StrokeTemplate([_orientSolid(outer)]);
     }
 
+    // Only the outer side's corners are handed out. The inner side's would fill
+    // in the hole they sit in rather than the ink.
+    final corners = _wedgesFromRuns(
+      (halfWidth, wedges) => _closedSide(
+        elements,
+        outerIsFirst ? 1 : -1,
+        halfWidth,
+        wedges: wedges,
+      ),
+    );
+
     // The side enclosing less area is the hole the fill axis closes. It is
     // reversed so that it winds against the outer boundary and so punches
-    // through it rather than adding to it.
+    // through it rather than adding to it. Where the stroke has covered the
+    // whole inside of the shape the hole has already been pulled onto the
+    // middle of it and encloses nothing, so it punches nothing.
     return StrokeTemplate([
       _orientSolid(outer),
+      ...corners,
       _orientHole(
         StrokeContourTemplate(
           points: inner.reversed.points,
           behaviour: ContourFillBehaviour.collapse,
           collapseTarget: _centroidOf(elements),
+          emptyAtHalfWidth: inner.emptyAtHalfWidth,
         ),
       ),
     ]);
-  }
-
-  /// Whether the stroke is thick enough to have covered the whole inside of
-  /// the shape, leaving no room for a hole.
-  ///
-  /// Offsetting a boundary inwards only makes sense while the shape is wider
-  /// than the offset. Past that the inner boundary turns itself inside out and
-  /// starts tracing a shape again — a circle of radius `r` offset inwards by
-  /// `h > r` comes back as a circle of radius `h - r`, whose area is perfectly
-  /// respectable and gives no hint that anything is wrong. Punching that
-  /// through the outer boundary leaves a hole in the middle of what should be
-  /// solid ink.
-  ///
-  /// What actually decides it is how much room the shape has: a hole can only
-  /// exist where some point inside the centre line is further than the half
-  /// width from it. So the inner boundary's own points are measured against the
-  /// centre line, along with the centroid, and if none of them has that much
-  /// room the hole is dropped. Points at a corner sit right on the centre line
-  /// by construction, which is why this asks for the largest clearance rather
-  /// than the smallest.
-  ///
-  /// The judgement is made once, at a half width of one, and holds at every
-  /// weight. That is deliberate: the alternative is a shape whose number of
-  /// contours depends on how heavily it is drawn, which is exactly what
-  /// variation deltas cannot express.
-  bool _hasSwallowedItsInside(
-    List<_Element> elements,
-    StrokeContourTemplate inner,
-  ) {
-    const halfWidth = 1.0;
-    final centreLine = [for (final element in elements) element.start];
-    if (centreLine.length < 3) {
-      return false;
-    }
-
-    // A shape several stroke widths across cannot have been swallowed, and
-    // measuring every point against every edge is the expensive part.
-    var minX = double.infinity;
-    var minY = double.infinity;
-    var maxX = double.negativeInfinity;
-    var maxY = double.negativeInfinity;
-    for (final point in centreLine) {
-      minX = math.min(minX, point.x);
-      minY = math.min(minY, point.y);
-      maxX = math.max(maxX, point.x);
-      maxY = math.max(maxY, point.y);
-    }
-    if (math.min(maxX - minX, maxY - minY) > 4 * halfWidth) {
-      return false;
-    }
-
-    var clearance = 0.0;
-    void consider(Vec2 point) {
-      if (!isPointInPolygon(point, centreLine)) {
-        return;
-      }
-      clearance = math.max(clearance, distanceToPolygon(point, centreLine));
-    }
-
-    consider(_centroidOf(elements));
-    for (final point in inner.points) {
-      consider(point.at(halfWidth));
-    }
-    // A little under the half width, so that rounding cannot turn a hole that
-    // only just exists into one that only just does not.
-    return clearance < halfWidth * 0.9;
   }
 
   /// The outline of a sub path that collapsed to a single point.
@@ -346,9 +319,14 @@ final class Stroker {
   /// description of every point.
   StrokeContourTemplate _templateFromRuns(
     List<_SidePoint> Function(double halfWidth) build,
+  ) => _templateFromPair(build(0), build(1));
+
+  /// Recovers the affine description of a contour from the same points built at
+  /// a half width of zero and of one.
+  static StrokeContourTemplate _templateFromPair(
+    List<_SidePoint> atZero,
+    List<_SidePoint> atOne,
   ) {
-    final atZero = build(0);
-    final atOne = build(1);
     assert(
       atZero.length == atOne.length,
       'The stroker emitted ${atZero.length} points at a half width of zero but '
@@ -365,6 +343,22 @@ final class Stroker {
           ),
       ],
     );
+  }
+
+  /// The corners of the joins [build] turns into, each as its own contour.
+  ///
+  /// See [_appendJoin] for what they are for.
+  List<StrokeContourTemplate> _wedgesFromRuns(
+    void Function(double halfWidth, List<_Wedge> wedges) build,
+  ) {
+    final atZero = <_Wedge>[];
+    final atOne = <_Wedge>[];
+    build(0, atZero);
+    build(1, atOne);
+    return [
+      for (var index = 0; index < atZero.length; index++)
+        _orientSolid(_templateFromPair(atZero[index], atOne[index])),
+    ];
   }
 
   // ---------------------------------------------------------------------------
@@ -788,8 +782,9 @@ final class Stroker {
   List<_SidePoint> _openSide(
     List<_Element> elements,
     int sign,
-    double halfWidth,
-  ) {
+    double halfWidth, {
+    List<_Wedge>? wedges,
+  }) {
     final points = <_SidePoint>[
       (
         position: _offsetPoint(
@@ -810,6 +805,7 @@ final class Stroker {
           elements[index + 1],
           sign,
           halfWidth,
+          wedges: wedges,
         );
       }
     }
@@ -820,8 +816,9 @@ final class Stroker {
   List<_SidePoint> _closedSide(
     List<_Element> elements,
     int sign,
-    double halfWidth,
-  ) {
+    double halfWidth, {
+    List<_Wedge>? wedges,
+  }) {
     final points = <_SidePoint>[
       (
         position: _offsetPoint(
@@ -837,7 +834,14 @@ final class Stroker {
       _appendElement(points, elements[index], sign, halfWidth);
       final next = elements[(index + 1) % elements.length];
       if (index + 1 < elements.length) {
-        _appendJoin(points, elements[index], next, sign, halfWidth);
+        _appendJoin(
+          points,
+          elements[index],
+          next,
+          sign,
+          halfWidth,
+          wedges: wedges,
+        );
       } else {
         // The join that wraps back onto the contour's first point. The first
         // point is already there, so only the corner geometry is emitted.
@@ -848,6 +852,7 @@ final class Stroker {
           sign,
           halfWidth,
           emitNextStart: false,
+          wedges: wedges,
         );
       }
     }
@@ -883,6 +888,7 @@ final class Stroker {
     int sign,
     double halfWidth, {
     bool emitNextStart = true,
+    List<_Wedge>? wedges,
   }) {
     final incoming = current.endTangent;
     final outgoing = next.startTangent;
@@ -917,12 +923,39 @@ final class Stroker {
       }
     } else {
       // The inside of the turn: the offset lines cross, and the crossing point
-      // is the exact corner. The two points around it are collinear with it, so
-      // keeping them costs nothing but a zero-area sliver.
+      // is the exact corner.
       final miter = _miterDirection(incoming, outgoing, sign);
-      if (miter != null && miter.length <= innerJoinLimit) {
-        points.add((position: vertex + miter * halfWidth, onCurve: true));
+      final apex = miter != null && miter.length <= innerJoinLimit
+          ? vertex + miter * halfWidth
+          : null;
+      if (apex != null) {
+        points.add((position: apex, onCurve: true));
       }
+      // The corner is handed out again on its own, as a little loop from the
+      // vertex out along one offset, round the crossing point and back along
+      // the other.
+      //
+      // Where the artwork doubles back into a notch narrower than the stroke,
+      // the offset leaving this corner curves round and crosses the offset
+      // arriving at it. The lobe that crossing encloses winds against the
+      // contour it belongs to, and under the non-zero rule that is a slit of
+      // bare paper through solid ink — the one at the jaw of a skull drawn
+      // heavy. A separate contour cannot be cancelled by anything, so the lobe
+      // is inked whichever way the outline runs through it, and this one can
+      // only ever add ink to ink: every point of it lies between the centre
+      // line and the offset, with nowhere to spill.
+      wedges?.add([
+        (position: vertex, onCurve: true),
+        (
+          position: _offsetPoint(current.end, incoming, sign, halfWidth),
+          onCurve: true,
+        ),
+        if (apex != null) (position: apex, onCurve: true),
+        (
+          position: _offsetPoint(next.start, outgoing, sign, halfWidth),
+          onCurve: true,
+        ),
+      ]);
     }
 
     if (emitNextStart) {
@@ -1047,12 +1080,12 @@ final class Stroker {
 
   /// Twice the signed area a contour template encloses at a representative half
   /// width.
-  static double _templateArea(StrokeContourTemplate contour) {
+  static double _templateArea(StrokeContourTemplate contour, {double at = 1}) {
     final points = contour.points;
     var total = 0.0;
     for (var index = 0; index < points.length; index++) {
-      final current = points[index].at(1);
-      final next = points[(index + 1) % points.length].at(1);
+      final current = points[index].at(at);
+      final next = points[(index + 1) % points.length].at(at);
       total += current.cross(next);
     }
     return total / 2;
@@ -1065,8 +1098,94 @@ final class Stroker {
       _templateArea(contour) > 0 ? contour.reversed : contour;
 
   /// The opposite of [_orientSolid], for contours that punch a hole.
+  ///
+  /// Measured at a narrow stroke, like the choice of which side is which and
+  /// for the same reason: a hole that the stroke has already closed encloses
+  /// nothing at a half width of one and so has no direction to read there,
+  /// while every hole is a hole when the stroke is thin enough.
   static StrokeContourTemplate _orientHole(StrokeContourTemplate contour) =>
-      _templateArea(contour) < 0 ? contour.reversed : contour;
+      _templateArea(contour, at: _orientingHalfWidth) < 0
+      ? contour.reversed
+      : contour;
+
+  /// Returns [contour] with every point stopped at the half width where the
+  /// contour stops enclosing anything.
+  ///
+  /// This is for the side of a closed sub path that faces inwards, which is the
+  /// hole the shape has in the middle. Offsetting a boundary inwards only means
+  /// something while the shape is wider than the offset: past that the boundary
+  /// turns itself inside out and starts tracing a shape again — a circle of
+  /// radius `r` offset inwards by `h > r` comes back as a circle of radius
+  /// `h - r`, whose area is perfectly respectable and gives no hint that
+  /// anything is wrong. Punching that through the outer boundary leaves a hole
+  /// in the middle of what should be solid ink, and it grows with the weight.
+  ///
+  /// Where the whole contour turns over, its area passes through zero on the
+  /// way, and every point of it is affine in the half width, so that area is a
+  /// quadratic and the half width it happens at is one of its roots. From there
+  /// on the contour is pulled onto the point it collapses to, where it encloses
+  /// nothing and so punches nothing.
+  ///
+  /// Only the whole contour turning over is caught this way, which is the
+  /// point. A corner of the shape too tightly rounded for the stroke turns over
+  /// on its own, and there the fold is the right answer rather than the wrong
+  /// one: it fills the corner in exactly as far as the two sides meeting there
+  /// reach, which is where the boundary of a shrunken shape has its corner.
+  static StrokeContourTemplate _stoppedWhenEmpty(
+    StrokeContourTemplate contour,
+  ) {
+    final points = contour.points;
+    var constant = 0.0;
+    var linear = 0.0;
+    var quadratic = 0.0;
+    for (var index = 0; index < points.length; index++) {
+      final current = points[index];
+      final next = points[(index + 1) % points.length];
+      constant += current.base.cross(next.base);
+      linear +=
+          current.base.cross(next.direction) +
+          current.direction.cross(next.base);
+      quadratic += current.direction.cross(next.direction);
+    }
+    return StrokeContourTemplate(
+      points: points,
+      behaviour: contour.behaviour,
+      collapseTarget: contour.collapseTarget,
+      emptyAtHalfWidth: _smallestPositiveRoot(constant, linear, quadratic),
+    );
+  }
+
+  /// The smallest strictly positive root of `constant + linear * x +
+  /// quadratic * x * x`, or `null` when there is none.
+  static double? _smallestPositiveRoot(
+    double constant,
+    double linear,
+    double quadratic,
+  ) {
+    const epsilon = 1e-12;
+    if (quadratic.abs() < epsilon) {
+      if (linear.abs() < epsilon) {
+        return null;
+      }
+      final root = -constant / linear;
+      return root > epsilon ? root : null;
+    }
+    final discriminant = linear * linear - 4 * quadratic * constant;
+    if (discriminant < 0) {
+      return null;
+    }
+    final square = math.sqrt(discriminant);
+    final roots = [
+      (-linear - square) / (2 * quadratic),
+      (-linear + square) / (2 * quadratic),
+    ]..sort();
+    for (final root in roots) {
+      if (root > epsilon) {
+        return root;
+      }
+    }
+    return null;
+  }
 
   /// The area centroid of the polygon traced by the centre lines, used as the
   /// point an inner contour collapses onto when the fill axis closes it.

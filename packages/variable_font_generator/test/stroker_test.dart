@@ -529,11 +529,36 @@ void main() {
       );
     });
 
-    test('leaves a single solid contour with no inverted hole', () {
+    test('leaves no hole to punch through the solid it has become', () {
       final outline = const Stroker()
           .strokeSubPath(tiny)
           .evaluate(strokeScale: 1);
-      expect(outline.contours, hasLength(1));
+      expect(outline.contours.last.signedArea, closeTo(0, 1e-9));
+    });
+
+    test('keeps the hole at a weight that still leaves room for one', () {
+      // The same circle drawn at a quarter of the width. Its radius is half a
+      // unit and the stroke reaches a quarter of one inside it, so a quarter of
+      // a unit of hole is left: the weight a hole closes at belongs to the
+      // artwork, not to whichever weight the shape was measured at.
+      final outline = const Stroker()
+          .strokeSubPath(tiny)
+          .evaluate(strokeScale: 0.25);
+      expect(
+        outline.contours.last.signedArea.abs(),
+        closeTo(math.pi * 0.25 * 0.25, 0.01),
+      );
+    });
+
+    test('closes the hole once and leaves it closed', () {
+      final template = const Stroker().strokeSubPath(tiny);
+      for (final scale in [0.5, 0.75, 1.0, 2.0, 4.0]) {
+        expect(
+          template.evaluate(strokeScale: scale).contours.last.signedArea,
+          closeTo(0, 1e-9),
+          reason: 'at a stroke scale of $scale',
+        );
+      }
     });
 
     test('keeps the hole of a shape with room to spare', () {
@@ -550,6 +575,52 @@ void main() {
         outline.contours.last.signedArea.abs(),
         closeTo(math.pi * 3 * 3, 0.5),
       );
+    });
+  });
+
+  group('a stroke that doubles back into a notch narrower than itself', () {
+    // Lucide's skull has one on each side, where the jaw meets the cheek: the
+    // outline runs up the side of the jaw, turns a right angle and immediately
+    // curves back over what it has just drawn. Both offsets are the same width
+    // where they cross, so the lobe between them cancels and, drawn heavily,
+    // shows as a slit of bare paper through the middle of solid ink.
+    //
+    // The points below are in view box coordinates and sit inside that lobe,
+    // one at the jaw and two at the cheek above it, along with their mirrors on
+    // the other side of the icon. Every one of them is within the stroke of the
+    // centre line at both weights tested, so bare paper there can only be the
+    // slit.
+    const inTheNotch = [(17.20, 21.33), (19.27, 16.59), (19.50, 16.31)];
+
+    /// Heavier than the weight axis reaches on its own, and as heavy as weight,
+    /// grade and optical size reach together.
+    const heavy = [1.5, 1.86];
+    const size = 512;
+
+    /// Where a point of the 24 unit view box lands in a [size] pixel render of
+    /// the em box.
+    (int, int) pixelAt(double x, double y) =>
+        ((x / 24 * size).round(), (y / 24 * size).round());
+
+    test('inks the notch instead of slitting it open', () {
+      for (final scale in heavy) {
+        final bitmap = _render(
+          fixtureTemplates['skull']!.evaluate(strokeScale: scale),
+          size,
+        );
+        for (final point in inTheNotch) {
+          for (final x in [point.$1, 24 - point.$1]) {
+            final (column, row) = pixelAt(x, point.$2);
+            expect(
+              bitmap.pixels[row * bitmap.width + column],
+              255,
+              reason:
+                  'at a stroke scale of $scale, '
+                  '(${x.toStringAsFixed(1)}, ${point.$2})',
+            );
+          }
+        }
+      }
     });
   });
 
@@ -645,22 +716,31 @@ void main() {
     });
 
     test('moves every point exactly linearly with the stroke scale', () {
+      // Except a hole that has already closed, which stops where it closed and
+      // stays there. That is the one bend in the line, and a font puts a master
+      // on it rather than interpolating through it.
       for (final entry in fixtureTemplates.entries) {
-        final low = entry.value.evaluate(strokeScale: 0.5).allPoints;
-        final high = entry.value.evaluate(strokeScale: 2.5).allPoints;
-        final middle = entry.value.evaluate(strokeScale: 1.5).allPoints;
-        for (var index = 0; index < middle.length; index++) {
-          final blend = low[index].position.lerp(high[index].position, 0.5);
-          expect(
-            middle[index].position.x,
-            closeTo(blend.x, 1e-8),
-            reason: '${entry.key} point $index x',
-          );
-          expect(
-            middle[index].position.y,
-            closeTo(blend.y, 1e-8),
-            reason: '${entry.key} point $index y',
-          );
+        for (final contour in entry.value.contours) {
+          final closes = contour.emptyAtHalfWidth;
+          if (closes != null && closes < 2.5) {
+            continue;
+          }
+          final low = contour.evaluate(strokeScale: 0.5, fill: 0).points;
+          final high = contour.evaluate(strokeScale: 2.5, fill: 0).points;
+          final middle = contour.evaluate(strokeScale: 1.5, fill: 0).points;
+          for (var index = 0; index < middle.length; index++) {
+            final blend = low[index].position.lerp(high[index].position, 0.5);
+            expect(
+              middle[index].position.x,
+              closeTo(blend.x, 1e-8),
+              reason: '${entry.key} point $index x',
+            );
+            expect(
+              middle[index].position.y,
+              closeTo(blend.y, 1e-8),
+              reason: '${entry.key} point $index y',
+            );
+          }
         }
       }
     });

@@ -191,8 +191,13 @@ handles the cases naive offsetting gets wrong:
 
 - a path that crosses itself is cut at the crossings and stroked in pieces, so
   the fill rule does not punch a hole where the two passes overlap;
-- a stroke wider than the shape it outlines drops its inner boundary rather than
-  turning it inside out;
+- a hole closes at the weight the shape runs out of room for it and stays
+  closed, rather than turning inside out and punching through the solid the
+  stroke has become. Which weight that is comes from the artwork, so the eyes of
+  a skull are rings while there is room for rings and solid once there is not;
+- the corner of a join the stroke turns into is handed out as a contour of its
+  own, which fills the slit that the offset leaving that corner would otherwise
+  cut across the ink it curves back over;
 - a sharp inner corner falls back from its miter point before it can spike;
 - a zero-length sub path becomes a dot, which is what SVG asks for.
 
@@ -287,9 +292,9 @@ The package does not check itself against itself.
   **resvg**, and the two pictures are compared. Over all 1798 Lucide icons the
   mean overlap is 0.992 and the worst is 0.973.
 - The same comparison runs away from the default weight, against the artwork
-  re-stroked to the width that weight means. Over the fixture set the mean is
-  0.982 at weight 100 and 0.992 at weight 700. It is a weaker agreement than at
-  the default on purpose; see the limitations below.
+  re-stroked to the width that weight means. Over the same 1798 icons the mean
+  is 0.983 at weight 100 and 0.993 at weight 700. What is left at the heavy end
+  is mostly the reference disagreeing with itself; see the limitations below.
 - The **OpenType Sanitizer** — the validator Chrome and Firefox use to decide
   whether to load a web font — accepts the output.
 - **fontTools** parses every table and instantiates the font at chosen axis
@@ -315,23 +320,18 @@ The package does not check itself against itself.
   use them; if yours does, flatten it first.
 - A `transform` with a non-uniform scale scales the stroke by the geometric mean
   of the two factors, rather than making it elliptical as SVG would.
-- Whether a stroke is thick enough to have swallowed the inside of the shape it
-  outlines is decided once, at the default weight, and holds at every other.
-  It has to be: the answer changes with the weight, and what changes with it is
-  the number of contours, which is the one thing variation deltas cannot
-  express. So a shape that has no room for a hole at the default keeps none at a
-  lighter weight, where the artwork would have one — the eyes of Lucide's skull
-  are the clearest case. This is the largest disagreement with the artwork the
-  weight sweep measures.
-- Where the artwork's own stroking degenerates, the generator does not follow
-  it. A circle of radius 0.5 stroked three units wide has an inner boundary of
-  negative radius, which SVG's fill rule turns into a pinhole; the generated
-  glyph is a solid dot. That is a deliberate departure and it costs overlap
-  against the reference — `chart-scatter` at weight 700 is the worst of them.
-- Heavy weights can leave small spurs where a stroke turns sharply back on
-  itself, visible at the jaw of the skull at weight 700. The inner side of a
-  join is clamped for the weight the outline was built at, and the clamp does
-  not travel with the weight.
+- The weight a hole closes at is a bend in an otherwise straight line, and a
+  font can only describe bends where it has masters. There is one at the default
+  weight and one at each end of every axis, so a hole that closes between two of
+  them closes gradually over that stretch instead of exactly where the artwork
+  would have it.
+- Where a renderer's own stroking degenerates, the generator does not follow it
+  there. A circle of radius 0.5 stroked three units wide is a solid dot: every
+  point within 2.5 units of the centre is under the stroke. Draw it in a browser
+  or in resvg and a pinhole appears in the middle, because the inner boundary
+  has come out at a negative radius and the fill rule punches it back through.
+  The generated glyph is the solid dot, which costs overlap against a reference
+  that is itself wrong — `chart-scatter` at weight 700 is the worst of them.
 - Composite glyphs are never written, so identical icons do not share outlines.
 - `gvar` dominates the file size — about 6 KB per icon with all four of the
   `Icon` axes, of which a fifth is the half-fill master that keeps a detail from

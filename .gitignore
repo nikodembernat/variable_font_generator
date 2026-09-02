@@ -9,6 +9,9 @@ pubspec.lock
 # Scratch harnesses used during development
 packages/*/tool/_*.dart
 
+# What `flutter test` writes when a golden does not match
+packages/*/test/failures/
+
 # Editors
 .idea/
 .vscode/
