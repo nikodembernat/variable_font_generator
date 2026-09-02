@@ -68,10 +68,15 @@ all; leave it out and they stay plain `IconData`.
 Where the files go is `output`'s business — which is why the example points it
 at `lib/`, the only part of a package other projects can reach.
 
-Fixed rather than asked about: identifiers are camel case, the icon directory is
-searched recursively, and the timestamp in the font is pinned, so that rebuilding
+The font gets `FILL`, `wght`, `GRAD` and `opsz`, which are the axes `Icon` has
+parameters for. There is nothing to choose between there: any other set makes a
+font the widget cannot fully drive.
+
+Fixed the same way: identifiers are camel case, the icon directory is searched
+recursively, and the timestamp in the font is pinned, so that rebuilding
 unchanged icons produces identical bytes and no diff. The command line has
-options for all three, and for an index library, a pubspec and a preview sheet.
+options for all of those, for the `wdth` axis, and for an index library, a
+pubspec and a preview sheet.
 
 The action runs a compiled binary, taking the one published with the newest
 release. When there is none to take — nothing released yet, a fork, a `uses:
@@ -92,7 +97,6 @@ Named the way the command line names them.
 | `extension-name` | — | an extension type over `IconData`, such as `LucideIconData`. Needs `class-name` |
 | `package` | — | the package named in `fontPackage` on every icon |
 | `codepoints` | — | a JSON file remembering each icon's code point |
-| `axes` | `FILL,wght,GRAD,opsz` | which variation axes to offer |
 | `mirror-rtl` | — | icons to flip in right-to-left layouts |
 
 `units-per-em`, `curve-tolerance` and `start-codepoint` shape the font, and

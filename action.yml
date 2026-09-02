@@ -49,10 +49,6 @@ inputs:
       layouts.
     default: ''
 
-  axes:
-    description: >-
-      Comma separated variation axes: FILL, wght, GRAD, opsz and wdth.
-    default: FILL,wght,GRAD,opsz
   units-per-em:
     description: The design grid resolution of the font.
     default: '1000'
@@ -280,7 +276,6 @@ runs:
         EXTENSION_NAME: ${{ inputs.extension-name }}
         PACKAGE: ${{ inputs.package }}
         MIRROR_RTL: ${{ inputs.mirror-rtl }}
-        AXES: ${{ inputs.axes }}
         UNITS_PER_EM: ${{ inputs.units-per-em }}
         CURVE_TOLERANCE: ${{ inputs.curve-tolerance }}
         START_CODEPOINT: ${{ inputs.start-codepoint }}
@@ -316,9 +311,18 @@ runs:
           exit 1
         fi
 
+        # The four axes are the ones Flutter's Icon widget has parameters
+        # for. Any other set makes a font the widget cannot fully drive, so
+        # there is nothing here to choose between.
+        #
         # Sub directories are searched, so that pointing this at a tree of
         # icons finds them rather than reporting that there are none.
-        arguments=(build "$ICONS" --output "$OUTPUT" --recursive)
+        arguments=(
+          build "$ICONS"
+          --output "$OUTPUT"
+          --axes FILL,wght,GRAD,opsz
+          --recursive
+        )
 
         option() {
           if [ -n "$2" ]; then
@@ -328,7 +332,6 @@ runs:
         option --family "$FAMILY"
         option --class-name "$CLASS_NAME"
         option --extension-name "$EXTENSION_NAME"
-        option --axes "$AXES"
         option --units-per-em "$UNITS_PER_EM"
         option --curve-tolerance "$CURVE_TOLERANCE"
         option --start-codepoint "$START_CODEPOINT"
