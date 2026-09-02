@@ -66,6 +66,26 @@ void main() {
     );
   });
 
+  testWidgets('the three stroke axes carry an icon from light to heavy', (
+    tester,
+  ) async {
+    // Weight, grade and optical size all move the same thing — how much ink a
+    // stroke lays down — so they are shown moving together, which is what an
+    // application does with them in practice: a heavier weight against denser
+    // text at a smaller size.
+    await expectSheet(
+      tester,
+      'strokes',
+      settings: const [
+        IconThemeData(weight: 100, grade: -50, opticalSize: 48),
+        IconThemeData(weight: 250, grade: -25, opticalSize: 40),
+        IconThemeData(weight: 400, grade: 0, opticalSize: 32),
+        IconThemeData(weight: 550, grade: 100, opticalSize: 26),
+        IconThemeData(weight: 700, grade: 200, opticalSize: 20),
+      ],
+    );
+  });
+
   testWidgets('the fill axis closes shapes and cuts their detail back out', (
     tester,
   ) async {

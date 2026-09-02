@@ -7,6 +7,10 @@ The generated font responds to the four axes Flutter's `Icon` widget already
 drives — `fill`, `weight`, `grade` and `opticalSize` — so one file covers what
 would otherwise be a family of them.
 
+<!-- Weight, grade and optical size moving together, drawn by Flutter from the
+     generated font. It is a checked-in golden test. -->
+![The same ten icons from hairline to heavy, across the weight, grade and optical size axes](packages/lucide_variable_icons/test/goldens/strokes.png)
+
 ## Layout
 
 | | |
