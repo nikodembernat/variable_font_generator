@@ -20,6 +20,7 @@ would otherwise be a family of them.
 | [`action.yml`](action.yml) | the reusable GitHub action, which is this repository |
 | [`tool/build_binary.sh`](tool/build_binary.sh) | compiles the tool into a single executable |
 | [`tool/verify_font.py`](tool/verify_font.py) | checks a font against fontTools, FreeType, resvg, HarfBuzz and the OpenType Sanitizer |
+| [`tool/check_tree_shaking.sh`](tool/check_tree_shaking.sh) | checks that a release build keeps exactly the icons it draws |
 
 Start with the [package README](packages/variable_font_generator/README.md) —
 it covers installation, the command line, how the axes are realised, and the
@@ -159,6 +160,9 @@ cd packages/lucide_variable_icons && flutter pub get && flutter test
 
 # build the executable the GitHub action runs
 ./tool/build_binary.sh
+
+# check that Flutter's icon tree shaker still recognises the generated icons
+pip install fonttools && ./tool/check_tree_shaking.sh
 
 # check a font against four independent implementations
 pip install -r tool/requirements.txt

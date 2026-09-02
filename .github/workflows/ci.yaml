@@ -78,6 +78,19 @@ jobs:
           path: packages/lucide_variable_icons/test/failures/
           if-no-files-found: ignore
 
+      # The generated icons have to stay legible to Flutter's icon tree
+      # shaker, and the way they could stop being so is silent: the font would
+      # simply arrive with every icon in it. Only a real release build shows
+      # that, and only a web one, which has no whole-program pass to fall back
+      # on.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install fonttools
+        working-directory: ${{ github.workspace }}
+      - run: ./tool/check_tree_shaking.sh
+        working-directory: ${{ github.workspace }}
+
   # The reusable action, run the way anybody else would run it, on each of the
   # three operating systems GitHub offers. It compiles the generator from this
   # checkout rather than downloading a release, which is what a pull request

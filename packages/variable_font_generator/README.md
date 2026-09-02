@@ -115,6 +115,9 @@ them. (There is no subclass to compare it against in any case: `IconData` is a
 drawing three of the 45 icons in the fixture font subsets it from 219 KB to
 12 KB, wrapper type or not.
 
+Extension types are a Dart 3.3 feature, so the project the bindings land in
+needs at least that. Leave the option out and the icons stay plain `IconData`.
+
 ### Keep the code points stable
 
 `--codepoints <file>` remembers which code point every icon was given. Pass it
@@ -259,6 +262,11 @@ The package does not check itself against itself.
   which is the only thing that proves the axes reach Skia. A font whose `fvar`
   or `gvar` is subtly wrong renders without complaint and simply refuses to
   change shape.
+- A release build of a throwaway application drawing three of the 45 fixture
+  icons is inspected, and the font that comes out of it has to hold those three
+  and nothing else. That is the only way to see the icon tree shaker, which
+  fails silently in both directions: a font with every icon in it, or one
+  missing the icons being drawn.
 
 `tool/verify_font.py` in the repository runs the first four; see
 `.github/workflows/ci.yaml` for how they fit together.

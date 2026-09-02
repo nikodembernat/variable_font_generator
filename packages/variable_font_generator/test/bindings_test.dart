@@ -447,6 +447,29 @@ void main() {
       );
     });
 
+    test('leaves the icons in the class, where the annotation is read', () {
+      final source = wrappingGenerator.generate(icons);
+      expect(
+        source.indexOf('extension type const MyIconData'),
+        lessThan(source.indexOf('@staticIconProvider')),
+      );
+      expect(
+        source,
+        contains('implements IconData;'),
+        reason:
+            'The extension type has to stay empty. @staticIconProvider is '
+            'what tells the tree shaker a declaration is not a use, and the '
+            'tool reads it off a class; an extension type is not one, so the '
+            'annotation on it would be ignored silently and a web build would '
+            'keep every icon in the set.',
+      );
+      expect(
+        RegExp(r'@staticIconProvider\nabstract final class MyIcons \{')
+            .hasMatch(source),
+        isTrue,
+      );
+    });
+
     test('documents the wrapper as something to write in a signature', () {
       final source = wrappingGenerator.generate(icons);
       expect(source, contains('/// The type of every icon in [MyIcons].'));

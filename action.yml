@@ -34,7 +34,8 @@ inputs:
       Declares an extension type of this name wrapping IconData, such as
       LucideIconData, and gives every generated icon that type. It lets a
       signature ask for an icon from this set rather than any icon at all, and
-      costs nothing at run time.
+      costs nothing at run time. Needs Dart 3.3 in the project the bindings
+      land in.
     default: ''
   package:
     description: >-

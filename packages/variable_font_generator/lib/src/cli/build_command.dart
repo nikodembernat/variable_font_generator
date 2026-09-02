@@ -41,7 +41,8 @@ final class BuildCommand extends Command<int> {
             'gives every generated icon that type, so that a signature can ask '
             'for an icon from this set rather than any icon at all. Costs '
             'nothing at run time and leaves icon tree shaking working, because '
-            'an extension type is erased during compilation.',
+            'an extension type is erased during compilation. Needs Dart 3.3 '
+            'in the project the bindings land in.',
         valueHelp: 'name',
       )
       ..addOption(

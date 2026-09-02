@@ -88,6 +88,14 @@ final class FlutterBindingsGenerator {
   /// Flutter's icon tree shaker — which looks for constant `IconData` in the
   /// compiled program — still finds them. A subclass would not do: `IconData`
   /// is a `final class`, so it cannot be extended at all.
+  ///
+  /// The type is declared empty, and the icons stay inside the class. That is
+  /// not a matter of taste: `@staticIconProvider` is what tells the tree
+  /// shaker that a declaration is not a use, and the tool reads it off a
+  /// class. An extension type is not one, so the annotation on it would be
+  /// ignored without a word of complaint, and a web build — which has no
+  /// whole-program pass to fall back on — would keep every icon in the set
+  /// whether or not the application draws it.
   final String? extensionTypeName;
 
   /// How the generated code refers to the font.
