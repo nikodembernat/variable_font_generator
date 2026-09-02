@@ -146,4 +146,28 @@ void main() {
       matchesGoldenFile('goldens/all_icons_filled.png'),
     );
   });
+
+  testWidgets("an icon can be asked for by this set's own type", (
+    tester,
+  ) async {
+    // The whole point of the generated extension type: a signature that takes
+    // an icon from this set and nothing else, while `Icon` still accepts one.
+    // Both halves are checked when this file is compiled rather than when it
+    // runs, which is where an extension type does its work.
+    Widget leading(LucideIconData icon) => Icon(icon, size: 48);
+    const List<LucideIconData> everyIcon = allLucideIcons;
+    const Map<String, LucideIconData> byName = lucideIconsByName;
+
+    await pumpSheet(
+      tester,
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: leading(LucideIcons.house),
+      ),
+    );
+
+    expect(find.byIcon(LucideIcons.house), findsOneWidget);
+    expect(everyIcon, hasLength(byName.length));
+    expect(byName['house'], LucideIcons.house);
+  });
 }

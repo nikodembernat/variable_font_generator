@@ -4,6 +4,22 @@
 
 import 'package:flutter/widgets.dart';
 
+/// The type of every icon in [LucideIcons].
+///
+/// It wraps [IconData] so that a signature can ask for an icon from this
+/// set in particular:
+///
+/// ```dart
+/// Widget leading(LucideIconData icon) => Icon(icon);
+/// ```
+///
+/// Nothing is wrapped at run time. An extension type is erased during
+/// compilation, so one of these values is an [IconData] and nothing else,
+/// which is what keeps Flutter's icon tree shaker working: it looks for
+/// constant [IconData] in the compiled program, and that is exactly what
+/// it finds.
+extension type const LucideIconData(IconData _icon) implements IconData;
+
 /// Icons from the `LucideVariable` variable icon font.
 ///
 /// Every icon responds to the axes the font was built with.
@@ -33,320 +49,410 @@ import 'package:flutter/widgets.dart';
 @staticIconProvider
 abstract final class LucideIcons {
   /// The `a-arrow-down` icon.
-  static const IconData aArrowDown = IconData(
-    0xe000,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData aArrowDown = LucideIconData(
+    IconData(
+      0xe000,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `album` icon.
-  static const IconData album = IconData(
-    0xe001,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData album = LucideIconData(
+    IconData(
+      0xe001,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `align-horizontal-space-between` icon.
-  static const IconData alignHorizontalSpaceBetween = IconData(
-    0xe002,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData alignHorizontalSpaceBetween = LucideIconData(
+    IconData(
+      0xe002,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `ampersands` icon.
-  static const IconData ampersands = IconData(
-    0xe003,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData ampersands = LucideIconData(
+    IconData(
+      0xe003,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `arrow-right` icon.
-  static const IconData arrowRight = IconData(
-    0xe004,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
-    matchTextDirection: true,
+  static const LucideIconData arrowRight = LucideIconData(
+    IconData(
+      0xe004,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+      matchTextDirection: true,
+    ),
   );
 
   /// The `battery` icon.
-  static const IconData battery = IconData(
-    0xe005,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData battery = LucideIconData(
+    IconData(
+      0xe005,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `bell` icon.
-  static const IconData bell = IconData(
-    0xe006,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData bell = LucideIconData(
+    IconData(
+      0xe006,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `bookmark-x` icon.
-  static const IconData bookmarkX = IconData(
-    0xe007,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData bookmarkX = LucideIconData(
+    IconData(
+      0xe007,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `calendar-days` icon.
-  static const IconData calendarDays = IconData(
-    0xe008,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData calendarDays = LucideIconData(
+    IconData(
+      0xe008,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `cat` icon.
-  static const IconData cat = IconData(
-    0xe009,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData cat = LucideIconData(
+    IconData(
+      0xe009,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `chart-scatter` icon.
-  static const IconData chartScatter = IconData(
-    0xe00a,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData chartScatter = LucideIconData(
+    IconData(
+      0xe00a,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `circle` icon.
-  static const IconData circle = IconData(
-    0xe00b,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData circle = LucideIconData(
+    IconData(
+      0xe00b,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `circle-check` icon.
-  static const IconData circleCheck = IconData(
-    0xe00c,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData circleCheck = LucideIconData(
+    IconData(
+      0xe00c,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `circle-divide` icon.
-  static const IconData circleDivide = IconData(
-    0xe00d,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData circleDivide = LucideIconData(
+    IconData(
+      0xe00d,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `circle-dot` icon.
-  static const IconData circleDot = IconData(
-    0xe00e,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData circleDot = LucideIconData(
+    IconData(
+      0xe00e,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `command` icon.
-  static const IconData command = IconData(
-    0xe00f,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData command = LucideIconData(
+    IconData(
+      0xe00f,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `cone` icon.
-  static const IconData cone = IconData(
-    0xe010,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData cone = LucideIconData(
+    IconData(
+      0xe010,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `cylinder` icon.
-  static const IconData cylinder = IconData(
-    0xe011,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData cylinder = LucideIconData(
+    IconData(
+      0xe011,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `droplet` icon.
-  static const IconData droplet = IconData(
-    0xe012,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData droplet = LucideIconData(
+    IconData(
+      0xe012,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `egg` icon.
-  static const IconData egg = IconData(
-    0xe013,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData egg = LucideIconData(
+    IconData(
+      0xe013,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `file-text` icon.
-  static const IconData fileText = IconData(
-    0xe014,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData fileText = LucideIconData(
+    IconData(
+      0xe014,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `flame` icon.
-  static const IconData flame = IconData(
-    0xe015,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData flame = LucideIconData(
+    IconData(
+      0xe015,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `heart` icon.
-  static const IconData heart = IconData(
-    0xe016,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData heart = LucideIconData(
+    IconData(
+      0xe016,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `heater` icon.
-  static const IconData heater = IconData(
-    0xe017,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData heater = LucideIconData(
+    IconData(
+      0xe017,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `hop` icon.
-  static const IconData hop = IconData(
-    0xe018,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData hop = LucideIconData(
+    IconData(
+      0xe018,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `house` icon.
-  static const IconData house = IconData(
-    0xe019,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData house = LucideIconData(
+    IconData(
+      0xe019,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `inbox` icon.
-  static const IconData inbox = IconData(
-    0xe01a,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData inbox = LucideIconData(
+    IconData(
+      0xe01a,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `infinity` icon.
-  static const IconData infinity = IconData(
-    0xe01b,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData infinity = LucideIconData(
+    IconData(
+      0xe01b,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `mouse` icon.
-  static const IconData mouse = IconData(
-    0xe01c,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData mouse = LucideIconData(
+    IconData(
+      0xe01c,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `navigation` icon.
-  static const IconData navigation = IconData(
-    0xe01d,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
-    matchTextDirection: true,
+  static const LucideIconData navigation = LucideIconData(
+    IconData(
+      0xe01d,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+      matchTextDirection: true,
+    ),
   );
 
   /// The `navigation-2` icon.
-  static const IconData navigation2 = IconData(
-    0xe01e,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
-    matchTextDirection: true,
+  static const LucideIconData navigation2 = LucideIconData(
+    IconData(
+      0xe01e,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+      matchTextDirection: true,
+    ),
   );
 
   /// The `package` icon.
-  static const IconData package = IconData(
-    0xe01f,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData package = LucideIconData(
+    IconData(
+      0xe01f,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `panda` icon.
-  static const IconData panda = IconData(
-    0xe020,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData panda = LucideIconData(
+    IconData(
+      0xe020,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `plus` icon.
-  static const IconData plus = IconData(
-    0xe021,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData plus = LucideIconData(
+    IconData(
+      0xe021,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `rocket` icon.
-  static const IconData rocket = IconData(
-    0xe022,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData rocket = LucideIconData(
+    IconData(
+      0xe022,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `section` icon.
-  static const IconData section = IconData(
-    0xe023,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData section = LucideIconData(
+    IconData(
+      0xe023,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `skull` icon.
-  static const IconData skull = IconData(
-    0xe024,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData skull = LucideIconData(
+    IconData(
+      0xe024,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `square` icon.
-  static const IconData square = IconData(
-    0xe025,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData square = LucideIconData(
+    IconData(
+      0xe025,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `square-divide` icon.
-  static const IconData squareDivide = IconData(
-    0xe026,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData squareDivide = LucideIconData(
+    IconData(
+      0xe026,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `star` icon.
-  static const IconData star = IconData(
-    0xe027,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData star = LucideIconData(
+    IconData(
+      0xe027,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `tag` icon.
-  static const IconData tag = IconData(
-    0xe028,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData tag = LucideIconData(
+    IconData(
+      0xe028,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `toggle-left` icon.
-  static const IconData toggleLeft = IconData(
-    0xe029,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData toggleLeft = LucideIconData(
+    IconData(
+      0xe029,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `unlink` icon.
-  static const IconData unlink = IconData(
-    0xe02a,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData unlink = LucideIconData(
+    IconData(
+      0xe02a,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `waves-arrow-down` icon.
-  static const IconData wavesArrowDown = IconData(
-    0xe02b,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData wavesArrowDown = LucideIconData(
+    IconData(
+      0xe02b,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 
   /// The `x` icon.
-  static const IconData x = IconData(
-    0xe02c,
-    fontFamily: 'LucideVariable',
-    fontPackage: 'lucide_variable_icons',
+  static const LucideIconData x = LucideIconData(
+    IconData(
+      0xe02c,
+      fontFamily: 'LucideVariable',
+      fontPackage: 'lucide_variable_icons',
+    ),
   );
 }

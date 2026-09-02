@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 import 'package:variable_font_generator/src/bindings/flutter_bindings.dart';
 import 'package:variable_font_generator/src/bindings/flutter_pubspec.dart';
 import 'package:variable_font_generator/src/cli/build_options.dart';
+import 'package:variable_font_generator/src/cli/build_summary.dart';
 import 'package:variable_font_generator/src/cli/codepoint_map.dart';
 import 'package:variable_font_generator/src/cli/icon_loader.dart';
 import 'package:variable_font_generator/src/generator/icon_font_generator.dart';
@@ -14,11 +15,12 @@ typedef BuildResult = ({
   int iconCount,
   int fontBytes,
   String fontPath,
-  String libraryPath,
+  String? libraryPath,
   String? indexPath,
   String? pubspecPath,
   String? previewPath,
   String? codePointMapPath,
+  String? summaryPath,
 });
 
 /// Runs a build described by [options], writing the font and its bindings.
@@ -83,33 +85,42 @@ BuildResult runBuild(BuildOptions options, {void Function(String)? log}) {
   final bindingsGenerator = FlutterBindingsGenerator(
     className: options.className,
     font: reference,
+    extensionTypeName: options.extensionTypeName,
     axisSet: options.axisSet,
     identifierStyle: options.identifierStyle,
     mirroredInRightToLeft: options.mirroredInRightToLeft,
     sourceDescription:
         '${icons.length} icons from ${p.basename(options.inputDirectory)}',
   );
-  final bindings = bindingsGenerator.generate(font.icons);
-  final libraryPath = p.join(
-    options.outputDirectory,
-    options.libraryRelativePath,
-  );
-  _write(libraryPath, (file) => file.writeAsStringSync(bindings));
 
+  String? libraryPath;
   String? indexPath;
-  if (options.emitIndex) {
-    indexPath = p.join(options.outputDirectory, options.indexRelativePath);
+  if (options.emitBindings) {
+    libraryPath = p.join(options.outputDirectory, options.libraryRelativePath);
     _write(
-      indexPath,
-      (file) => file.writeAsStringSync(
-        bindingsGenerator.generateIndex(
-          font.icons,
-          libraryImport: switch (options.packageName) {
-            final package? => 'package:$package/${options.libraryFileName}',
-            null => options.libraryFileName,
-          },
+      libraryPath,
+      (file) => file.writeAsStringSync(bindingsGenerator.generate(font.icons)),
+    );
+
+    if (options.emitIndex) {
+      indexPath = p.join(options.outputDirectory, options.indexRelativePath);
+      _write(
+        indexPath,
+        (file) => file.writeAsStringSync(
+          bindingsGenerator.generateIndex(
+            font.icons,
+            libraryImport: switch (options.packageName) {
+              final package? => 'package:$package/${options.libraryFileName}',
+              null => options.libraryFileName,
+            },
+          ),
         ),
-      ),
+      );
+    }
+  } else if (options.emitIndex) {
+    throw StateError(
+      'An index library lists the icons the bindings declare, so it needs '
+      'them; either ask for bindings or drop the index',
     );
   }
 
@@ -161,7 +172,7 @@ BuildResult runBuild(BuildOptions options, {void Function(String)? log}) {
     report('Wrote a preview to $path');
   }
 
-  return (
+  final result = (
     iconCount: icons.length,
     fontBytes: font.bytes.length,
     fontPath: fontPath,
@@ -170,7 +181,19 @@ BuildResult runBuild(BuildOptions options, {void Function(String)? log}) {
     pubspecPath: pubspecPath,
     previewPath: previewPath,
     codePointMapPath: codePointsPath,
+    summaryPath: options.summaryPath,
   );
+
+  // Written last, and describing everything above it, so that a reader who
+  // finds the file can trust that the build finished.
+  if (options.summaryPath case final path?) {
+    _write(
+      path,
+      (file) => file.writeAsStringSync(formatBuildSummary(options, result)),
+    );
+  }
+
+  return result;
 }
 
 void _write(String path, void Function(File file) write) {

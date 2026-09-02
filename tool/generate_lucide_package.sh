@@ -13,6 +13,7 @@ dart run packages/variable_font_generator/bin/variable_font_generator.dart build
   --family LucideVariable \
   --package lucide_variable_icons \
   --class-name LucideIcons \
+  --extension-name LucideIconData \
   --index \
   --codepoints packages/lucide_variable_icons/codepoints.json \
   --font-version 1.000 \

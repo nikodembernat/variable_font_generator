@@ -35,6 +35,16 @@ final class BuildCommand extends Command<int> {
         valueHelp: 'name',
       )
       ..addOption(
+        'extension-name',
+        help:
+            'Declares an extension type of this name wrapping IconData, and '
+            'gives every generated icon that type, so that a signature can ask '
+            'for an icon from this set rather than any icon at all. Costs '
+            'nothing at run time and leaves icon tree shaking working, because '
+            'an extension type is erased during compilation.',
+        valueHelp: 'name',
+      )
+      ..addOption(
         'package',
         help:
             'The Flutter package the font ships in. Setting it writes a '
@@ -128,11 +138,26 @@ final class BuildCommand extends Command<int> {
         valueHelp: 'name',
       )
       ..addOption(
+        'summary',
+        help:
+            'Write a key=value summary of everything the build produced. '
+            r'Point it at $GITHUB_OUTPUT to turn the paths into the outputs '
+            'of a GitHub Actions step.',
+        valueHelp: 'file',
+      )
+      ..addOption(
         'preview',
         help:
             'Write a PNG contact sheet showing a sample of the icons at every '
             'axis extreme.',
         valueHelp: 'file.png',
+      )
+      ..addFlag(
+        'bindings',
+        help:
+            'Write the Flutter bindings. Turn them off with --no-bindings for '
+            'a font that is not going into a Flutter project.',
+        defaultsTo: true,
       )
       ..addFlag(
         'index',
@@ -183,6 +208,42 @@ final class BuildCommand extends Command<int> {
     final family = results.option('family')!;
     final packageName = results.option('package');
     final className = results.option('class-name') ?? ReCase(family).pascalCase;
+    final extensionTypeName = results.option('extension-name');
+    final emitBindings = results.flag('bindings');
+    if (!emitBindings) {
+      if (results.flag('index')) {
+        usageException(
+          'An index library lists the icons the bindings declare, so it needs '
+          'them; drop --index or drop --no-bindings.',
+        );
+      }
+      if (extensionTypeName != null) {
+        usageException(
+          'An extension type names the icons in the bindings, so it needs '
+          'them; drop --extension-name or drop --no-bindings.',
+        );
+      }
+    }
+    if (emitBindings) {
+      if (!isPublicDartIdentifier(className)) {
+        usageException(
+          '"$className" cannot name a Dart class. Pass --class-name with a '
+          'name that can.',
+        );
+      }
+      if (extensionTypeName != null &&
+          !isPublicDartIdentifier(extensionTypeName)) {
+        usageException(
+          '"$extensionTypeName" cannot name a Dart extension type.',
+        );
+      }
+      if (extensionTypeName == className) {
+        usageException(
+          'The icon class and the extension type would both be called '
+          '"$className", and one declaration would shadow the other.',
+        );
+      }
+    }
     final libraryFileName =
         results.option('library') ??
         (packageName == null ? 'icons.dart' : '$packageName.dart');
@@ -194,6 +255,8 @@ final class BuildCommand extends Command<int> {
       outputDirectory: results.option('output')!,
       family: family,
       className: className,
+      extensionTypeName: extensionTypeName,
+      emitBindings: emitBindings,
       libraryFileName: libraryFileName,
       packageName: packageName,
       axisSet: IconAxisSet([
@@ -216,6 +279,7 @@ final class BuildCommand extends Command<int> {
       writePubspec: results.flag('pubspec'),
       codePointMapPath: results.option('codepoints'),
       previewPath: results.option('preview'),
+      summaryPath: results.option('summary'),
       mirroredInRightToLeft: results.multiOption('mirror-rtl').toSet(),
       timestamp: results.flag('reproducible') ? DateTime.utc(2000) : null,
       names: FontNames(
@@ -234,8 +298,10 @@ final class BuildCommand extends Command<int> {
     final result = runBuild(options, log: _output.writeln);
     _output
       ..writeln()
-      ..writeln('  font     ${p.normalize(result.fontPath)}')
-      ..writeln('  bindings ${p.normalize(result.libraryPath)}');
+      ..writeln('  font     ${p.normalize(result.fontPath)}');
+    if (result.libraryPath case final path?) {
+      _output.writeln('  bindings ${p.normalize(path)}');
+    }
     if (result.indexPath case final path?) {
       _output.writeln('  index    ${p.normalize(path)}');
     }
@@ -247,6 +313,9 @@ final class BuildCommand extends Command<int> {
     }
     if (result.previewPath case final path?) {
       _output.writeln('  preview  ${p.normalize(path)}');
+    }
+    if (result.summaryPath case final path?) {
+      _output.writeln('  summary  ${p.normalize(path)}');
     }
     return 0;
   }

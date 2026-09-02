@@ -30,6 +30,7 @@ export 'src/bindings/dart_identifiers.dart'
         IdentifierStyle,
         dartObjectMembers,
         dartReservedWords,
+        isPublicDartIdentifier,
         leadingNumberNames,
         toDartIdentifier;
 export 'src/bindings/flutter_bindings.dart'
@@ -37,6 +38,7 @@ export 'src/bindings/flutter_bindings.dart'
 export 'src/bindings/flutter_pubspec.dart' show FlutterPubspecGenerator;
 export 'src/cli/build_options.dart' show BuildOptions;
 export 'src/cli/build_runner.dart' show BuildResult, runBuild;
+export 'src/cli/build_summary.dart' show formatBuildSummary;
 export 'src/cli/codepoint_map.dart' show CodePointMap;
 export 'src/cli/icon_loader.dart' show loadSvgIcons;
 export 'src/cli/runner.dart' show buildCommandRunner, packageVersion, runCli;

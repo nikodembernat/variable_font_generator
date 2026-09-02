@@ -3,7 +3,7 @@ description: >-
   Generates a variable OpenType/TrueType icon font from a directory of SVG
   icons, together with ready-to-use Flutter IconData bindings. Supports the
   FILL, wght, GRAD and opsz axes that Flutter's Icon widget exposes.
-version: 0.1.0
+version: 0.2.0
 repository: https://github.com/nikodembernat/variable_font_generator
 issue_tracker: https://github.com/nikodembernat/variable_font_generator/issues
 topics:

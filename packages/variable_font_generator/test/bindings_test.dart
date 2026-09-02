@@ -170,6 +170,38 @@ void main() {
     });
   });
 
+  group('isPublicDartIdentifier', () {
+    test('accepts what can name a public class', () {
+      expect(isPublicDartIdentifier('LucideIcons'), isTrue);
+      expect(isPublicDartIdentifier('MyIconData'), isTrue);
+      expect(isPublicDartIdentifier(r'$Weird'), isTrue);
+      expect(isPublicDartIdentifier('a1_b2'), isTrue);
+    });
+
+    test('rejects what cannot', () {
+      expect(isPublicDartIdentifier(''), isFalse);
+      expect(isPublicDartIdentifier('My Icons'), isFalse);
+      expect(isPublicDartIdentifier('my-icons'), isFalse);
+      expect(isPublicDartIdentifier('9Lives'), isFalse);
+      expect(isPublicDartIdentifier('class'), isFalse);
+      expect(isPublicDartIdentifier('extension'), isFalse);
+    });
+
+    test('rejects a private name, which nobody outside could use', () {
+      expect(isPublicDartIdentifier('_Hidden'), isFalse);
+    });
+
+    test('accepts every identifier the icon namer produces', () {
+      for (final name in awkwardNames) {
+        expect(
+          isPublicDartIdentifier(toDartIdentifier(name)),
+          isTrue,
+          reason: 'from "$name"',
+        );
+      }
+    });
+  });
+
   group('FlutterBindingsGenerator', () {
     const icons = [
       GeneratedIcon(name: 'house', codePoint: 0xe001, glyphId: 2),
@@ -184,6 +216,11 @@ void main() {
     const applicationGenerator = FlutterBindingsGenerator(
       className: 'MyIcons',
       font: FontReference.application(family: 'MyFam'),
+    );
+    const wrappingGenerator = FlutterBindingsGenerator(
+      className: 'MyIcons',
+      extensionTypeName: 'MyIconData',
+      font: FontReference.package(family: 'MyFam', package: 'my_pkg'),
     );
 
     test('declares a tree-shakeable abstract final icon class', () {
@@ -357,6 +394,78 @@ void main() {
       expect(
         source,
         contains('static const IconData hash_code_icon = IconData('),
+      );
+    });
+
+    test('declares no wrapper type unless one was named', () {
+      expect(packageGenerator.generate(icons), isNot(contains('extension')));
+    });
+
+    test('declares the wrapper as a const extension type over IconData', () {
+      final source = wrappingGenerator.generate(icons);
+      expect(
+        source,
+        contains(
+          'extension type const MyIconData(IconData _icon) '
+          'implements IconData;',
+        ),
+        reason:
+            'It has to be const to hold constants, and it has to implement '
+            'IconData for Icon to take one.',
+      );
+    });
+
+    test('gives every icon the wrapper type, around a plain IconData', () {
+      final source = wrappingGenerator.generate(icons);
+      expect(
+        RegExp('static const MyIconData ').allMatches(source),
+        hasLength(icons.length),
+      );
+      expect(
+        RegExp(r'MyIconData\(\s*IconData\(').allMatches(source),
+        hasLength(icons.length),
+        reason:
+            'The constant inside stays an IconData, which is what the icon '
+            'tree shaker looks for.',
+      );
+      expect(source, isNot(contains('static const IconData ')));
+    });
+
+    test('keeps the code point and the font on the inner IconData', () {
+      final source = wrappingGenerator.generate(icons);
+      expect(
+        source,
+        contains(
+          'static const MyIconData arrowRight = MyIconData(\n'
+          '    IconData(\n'
+          '      0xe000,\n'
+          "      fontFamily: 'MyFam',\n"
+          "      fontPackage: 'my_pkg',\n"
+          '    ),\n'
+          '  );\n',
+        ),
+      );
+    });
+
+    test('documents the wrapper as something to write in a signature', () {
+      final source = wrappingGenerator.generate(icons);
+      expect(source, contains('/// The type of every icon in [MyIcons].'));
+      expect(source, contains('Widget leading(MyIconData icon)'));
+    });
+
+    test('types the index by the wrapper, and drops the unused import', () {
+      final index = wrappingGenerator.generateIndex(
+        icons,
+        libraryImport: 'package:my_pkg/my_icons.dart',
+      );
+      expect(index, contains('const allMyIcons = <MyIconData>['));
+      expect(index, contains('const myIconsByName = <String, MyIconData>{'));
+      expect(
+        index,
+        isNot(contains("import 'package:flutter/widgets.dart';")),
+        reason:
+            'Nothing in the file names IconData any more, and an unused '
+            'import is an analysis failure in the project it lands in.',
       );
     });
 
@@ -625,7 +734,7 @@ void main() {
 
     test('writes the bindings at the file name it was given', () {
       expect(result.libraryPath, p.join(temporary.path, 'probe_icons.dart'));
-      expect(File(result.libraryPath).existsSync(), isTrue);
+      expect(File(result.libraryPath!).existsSync(), isTrue);
       expect(
         result.indexPath,
         p.join(temporary.path, 'probe_icons_index.dart'),
@@ -635,7 +744,7 @@ void main() {
     });
 
     test('generates a Dart library that looks like a parseable file', () {
-      final source = File(result.libraryPath).readAsStringSync();
+      final source = File(result.libraryPath!).readAsStringSync();
       expect(
         RegExp('static const IconData ').allMatches(source),
         hasLength(fixtureIcons.length),
@@ -684,7 +793,7 @@ void main() {
 
     test('produces byte-identical output when run again unchanged', () {
       final font = File(result.fontPath).readAsBytesSync();
-      final library = File(result.libraryPath).readAsStringSync();
+      final library = File(result.libraryPath!).readAsStringSync();
       final index = File(result.indexPath!).readAsStringSync();
       final codePoints = File(result.codePointMapPath!).readAsStringSync();
 
@@ -692,7 +801,7 @@ void main() {
 
       expect(again.fontPath, result.fontPath);
       expect(File(again.fontPath).readAsBytesSync(), font);
-      expect(File(again.libraryPath).readAsStringSync(), library);
+      expect(File(again.libraryPath!).readAsStringSync(), library);
       expect(File(again.indexPath!).readAsStringSync(), index);
       expect(File(again.codePointMapPath!).readAsStringSync(), codePoints);
     });
@@ -736,7 +845,7 @@ void main() {
     test(
       'names the package on every IconData so Flutter can find the font',
       () {
-        final source = File(result.libraryPath).readAsStringSync();
+        final source = File(result.libraryPath!).readAsStringSync();
         expect(
           RegExp("fontPackage: 'probe_icons',").allMatches(source),
           hasLength(fixtureIcons.length),
@@ -778,6 +887,54 @@ void main() {
   });
 
   group('runBuild refuses impossible builds', () {
+    test('will not write an index with no bindings for it to list', () {
+      final temporary = Directory.systemTemp.createTempSync('vfg-bindings-no-');
+      addTearDown(() => temporary.deleteSync(recursive: true));
+      expect(
+        () => runBuild(
+          BuildOptions(
+            inputDirectory: fixtureDirectory,
+            outputDirectory: temporary.path,
+            family: 'ProbeIcons',
+            className: 'ProbeIcons',
+            libraryFileName: 'probe_icons.dart',
+            emitBindings: false,
+            emitIndex: true,
+            timestamp: fixtureTimestamp,
+            names: const FontNames(family: 'ProbeIcons'),
+          ),
+        ),
+        throwsStateError,
+      );
+    });
+
+    test('writes the font and nothing else when bindings are off', () {
+      final temporary = Directory.systemTemp.createTempSync('vfg-bindings-no-');
+      addTearDown(() => temporary.deleteSync(recursive: true));
+      final result = runBuild(
+        BuildOptions(
+          inputDirectory: fixtureDirectory,
+          outputDirectory: temporary.path,
+          family: 'ProbeIcons',
+          className: 'ProbeIcons',
+          libraryFileName: 'probe_icons.dart',
+          emitBindings: false,
+          timestamp: fixtureTimestamp,
+          names: const FontNames(family: 'ProbeIcons'),
+        ),
+      );
+      expect(result.libraryPath, isNull);
+      expect(result.indexPath, isNull);
+      expect(File(result.fontPath).existsSync(), isTrue);
+      expect(
+        temporary
+            .listSync(recursive: true)
+            .whereType<File>()
+            .map((file) => p.basename(file.path)),
+        ['ProbeIcons.ttf'],
+      );
+    });
+
     test('will not write a pubspec without a package to name in it', () {
       final temporary = Directory.systemTemp.createTempSync('vfg-bindings-no-');
       addTearDown(() => temporary.deleteSync(recursive: true));

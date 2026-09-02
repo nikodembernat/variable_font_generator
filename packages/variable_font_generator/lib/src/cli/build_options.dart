@@ -16,6 +16,8 @@ final class BuildOptions {
     required this.className,
     required this.libraryFileName,
     required this.names,
+    this.extensionTypeName,
+    this.emitBindings = true,
     this.packageName,
     this.axisSet = IconAxisSet.material,
     this.metrics = const FontMetrics(),
@@ -27,6 +29,7 @@ final class BuildOptions {
     this.writePubspec = false,
     this.codePointMapPath,
     this.previewPath,
+    this.summaryPath,
     this.emitIndex = false,
     this.mirroredInRightToLeft = const {},
     this.timestamp,
@@ -46,6 +49,16 @@ final class BuildOptions {
 
   /// The file name of the generated Dart library, without a directory.
   final String libraryFileName;
+
+  /// The name of an extension type wrapping `IconData`, or `null` to leave the
+  /// icons as plain `IconData`.
+  final String? extensionTypeName;
+
+  /// Whether the Flutter bindings are written at all.
+  ///
+  /// A build that only wants the font — because the icons are for a web page,
+  /// or for a project that is not Flutter's — can turn them off.
+  final bool emitBindings;
 
   /// The strings that go into the font's `name` table.
   final FontNames names;
@@ -87,6 +100,13 @@ final class BuildOptions {
 
   /// Where a preview image of the generated icons is written, if anywhere.
   final String? previewPath;
+
+  /// Where a `key=value` summary of what the build wrote is left, if anywhere.
+  ///
+  /// It exists so that whatever ran the build can find the files without
+  /// having to know how the paths are put together. Appending it to a GitHub
+  /// Actions step's `$GITHUB_OUTPUT` is exactly what that file wants.
+  final String? summaryPath;
 
   /// Whether a second library listing every icon by name is written.
   final bool emitIndex;

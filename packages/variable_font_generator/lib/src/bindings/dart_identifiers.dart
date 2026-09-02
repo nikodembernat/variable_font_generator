@@ -120,6 +120,21 @@ const leadingNumberNames = {
   '360': 'threeSixty',
 };
 
+/// What Dart accepts as an identifier that can name a public declaration.
+///
+/// Deliberately stricter than the grammar in one respect: a leading underscore
+/// is rejected, because a class or extension type named that way would be
+/// invisible outside the library that generated it.
+final _publicIdentifier = RegExp(r'^[A-Za-z$][A-Za-z0-9_$]*$');
+
+/// Whether [name] can be used as the name of a public declaration.
+///
+/// Used to check the names a caller chooses for the generated class and its
+/// icon type, so that a bad one is reported rather than written out as Dart
+/// that will not compile.
+bool isPublicDartIdentifier(String name) =>
+    _publicIdentifier.hasMatch(name) && !dartReservedWords.contains(name);
+
 /// How generated identifiers are cased.
 enum IdentifierStyle {
   /// `arrow-right` becomes `arrowRight`, the Dart convention for a member.

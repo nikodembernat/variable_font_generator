@@ -34,6 +34,7 @@ void main() {
         outputDirectory: temporary.path,
         family: 'LucideVariable',
         className: 'LucideIcons',
+        extensionTypeName: 'LucideIconData',
         libraryFileName: 'lucide_variable_icons.dart',
         packageName: 'lucide_variable_icons',
         emitIndex: true,
@@ -76,7 +77,7 @@ void main() {
     expect(
       File(p.join(packageDirectory, 'lib', 'lucide_variable_icons.dart'))
           .readAsStringSync(),
-      File(built.libraryPath).readAsStringSync(),
+      File(built.libraryPath!).readAsStringSync(),
       reason: 'Run tool/generate_lucide_package.sh',
     );
   });

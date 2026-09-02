@@ -69,9 +69,44 @@ packages/my_icons/
     └── my_icons.dart            # class MyIcons { static const IconData house = ...; }
 ```
 
+`--no-bindings` writes the font alone, for a project that is not Flutter's.
+
 Drop `--package` and `--pubspec` to build for an application's own `assets/`
 directory instead; the generated `IconData` values then leave `fontPackage`
 unset, which is what a font declared in the application's own pubspec needs.
+
+### A type of your own for the icons
+
+`--extension-name` declares an extension type wrapping `IconData` and gives
+every generated icon that type, so a signature can ask for an icon from this set
+rather than any icon at all:
+
+```sh
+variable_font_generator build assets/icons \
+  --class-name MyIcons --extension-name MyIconData
+```
+
+```dart
+extension type const MyIconData(IconData _icon) implements IconData;
+
+@staticIconProvider
+abstract final class MyIcons {
+  static const MyIconData house = MyIconData(
+    IconData(0xe000, fontFamily: 'MyIcons'),
+  );
+}
+
+// Only this set's icons get past the signature, and `Icon` still takes one.
+Widget leading(MyIconData icon) => Icon(icon, fill: 1);
+```
+
+It costs nothing at run time, and — unlike the subclass this looks like —
+nothing at build time either. An extension type is erased during compilation, so
+the values stay `IconData` instances and Flutter's icon tree shaker still finds
+them. (There is no subclass to compare it against in any case: `IconData` is a
+`final class`, so it cannot be extended.) A release build of an application
+drawing three of the 45 icons in the fixture font subsets it from 219 KB to
+12 KB, wrapper type or not.
 
 ### Keep the code points stable
 
@@ -85,7 +120,9 @@ silently changes what an already-published build draws.
 ```
 --output, -o        Where everything is written.            (build/icons)
 --family            The font family name.                   (CustomIcons)
+--no-bindings       Write the font alone, without the Dart bindings.
 --class-name        The generated Dart class.               (the family name)
+--extension-name    An extension type over IconData to give the icons.
 --package           The Flutter package the font ships in.
 --library           File name of the generated library.
 --naming            camel | snake                           (camel)
@@ -98,6 +135,7 @@ silently changes what an already-published build draws.
 --curve-tolerance   How far a curve may deviate, in design units.  (1)
 --mirror-rtl        Icons to flip in right-to-left layouts.
 --preview           Write a PNG contact sheet of the result.
+--summary           Write a key=value list of everything produced.
 --pubspec           Write a pubspec declaring the font. Needs --package.
 --recursive, -r     Search sub directories for SVG files.
 --font-version --copyright --designer --manufacturer --license --license-url

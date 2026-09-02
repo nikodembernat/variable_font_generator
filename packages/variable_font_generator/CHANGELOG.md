@@ -1,3 +1,18 @@
+## 0.2.0
+
+- `--extension-name` declares an extension type wrapping `IconData` and gives
+  every generated icon that type, so a signature can ask for an icon from this
+  set rather than any icon at all. It is erased during compilation, so the
+  values stay `IconData` instances and icon tree shaking keeps working.
+- `--no-bindings` writes the font on its own, for a project that is not
+  Flutter's.
+- `--summary` writes a `key=value` list of everything the build produced.
+  Pointing it at `$GITHUB_OUTPUT` turns those paths into a step's outputs.
+- The class and extension type names are checked before anything is written,
+  rather than being emitted as Dart that will not compile.
+- **Breaking**: `BuildResult.libraryPath` is nullable, because a build without
+  bindings writes no library.
+
 ## 0.1.0
 
 First release.
