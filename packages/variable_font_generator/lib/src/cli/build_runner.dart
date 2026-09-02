@@ -82,20 +82,20 @@ BuildResult runBuild(BuildOptions options, {void Function(String)? log}) {
     ),
     null => FontReference.application(family: options.family),
   };
-  final bindingsGenerator = FlutterBindingsGenerator(
-    className: options.className,
-    font: reference,
-    extensionTypeName: options.extensionTypeName,
-    axisSet: options.axisSet,
-    identifierStyle: options.identifierStyle,
-    mirroredInRightToLeft: options.mirroredInRightToLeft,
-    sourceDescription:
-        '${icons.length} icons from ${p.basename(options.inputDirectory)}',
-  );
-
   String? libraryPath;
   String? indexPath;
-  if (options.emitBindings) {
+  if (options.className case final className?) {
+    final bindingsGenerator = FlutterBindingsGenerator(
+      className: className,
+      font: reference,
+      extensionTypeName: options.extensionTypeName,
+      axisSet: options.axisSet,
+      identifierStyle: options.identifierStyle,
+      mirroredInRightToLeft: options.mirroredInRightToLeft,
+      sourceDescription:
+          '${icons.length} icons from ${p.basename(options.inputDirectory)}',
+    );
+
     libraryPath = p.join(options.outputDirectory, options.libraryRelativePath);
     _write(
       libraryPath,
@@ -119,8 +119,8 @@ BuildResult runBuild(BuildOptions options, {void Function(String)? log}) {
     }
   } else if (options.emitIndex) {
     throw StateError(
-      'An index library lists the icons the bindings declare, so it needs '
-      'them; either ask for bindings or drop the index',
+      'An index library lists the icons the bindings declare, so it needs a '
+      'class to declare them in; either name one or drop the index',
     );
   }
 

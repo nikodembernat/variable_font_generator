@@ -15,8 +15,10 @@ String formatBuildSummary(BuildOptions options, BuildResult result) {
   final entries = <String, String?>{
     'family': options.family,
     'package': options.packageName,
-    'class-name': options.emitBindings ? options.className : null,
-    'extension-name': options.emitBindings ? options.extensionTypeName : null,
+    'class-name': options.className,
+    'extension-name': options.className == null
+        ? null
+        : options.extensionTypeName,
     'icon-count': '${result.iconCount}',
     'font-bytes': '${result.fontBytes}',
     'font': result.fontPath,

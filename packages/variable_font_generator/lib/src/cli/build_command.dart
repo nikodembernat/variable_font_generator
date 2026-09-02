@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 import 'package:path/path.dart' as p;
-import 'package:recase/recase.dart';
 import 'package:variable_font_generator/src/bindings/dart_identifiers.dart';
 import 'package:variable_font_generator/src/cli/build_options.dart';
 import 'package:variable_font_generator/src/cli/build_runner.dart';
@@ -25,13 +24,18 @@ final class BuildCommand extends Command<int> {
       )
       ..addOption(
         'family',
-        help: 'The font family name. Also names the generated font file.',
+        help:
+            'The font family name, which also names the generated font file. '
+            'Defaults to the class name, or to CustomIcons when there is no '
+            'class either.',
         valueHelp: 'name',
-        defaultsTo: 'CustomIcons',
       )
       ..addOption(
         'class-name',
-        help: 'The generated Dart class. Defaults to the family name.',
+        help:
+            'The Dart class to hold every icon. Naming one is what asks for '
+            'the Flutter bindings; without it only the font is written, which '
+            "is what a project that is not Flutter's wants.",
         valueHelp: 'name',
       )
       ..addOption(
@@ -154,13 +158,6 @@ final class BuildCommand extends Command<int> {
         valueHelp: 'file.png',
       )
       ..addFlag(
-        'bindings',
-        help:
-            'Write the Flutter bindings. Turn them off with --no-bindings for '
-            'a font that is not going into a Flutter project.',
-        defaultsTo: true,
-      )
-      ..addFlag(
         'index',
         help:
             'Also write a second library listing every icon by name. Keep it '
@@ -206,26 +203,27 @@ final class BuildCommand extends Command<int> {
       usageException('Expected exactly one directory of SVG files.');
     }
 
-    final family = results.option('family')!;
     final packageName = results.option('package');
-    final className = results.option('class-name') ?? ReCase(family).pascalCase;
+    final className = results.option('class-name');
     final extensionTypeName = results.option('extension-name');
-    final emitBindings = results.flag('bindings');
-    if (!emitBindings) {
-      if (results.flag('index')) {
+
+    // Naming a class is the whole of the request for bindings, and the class
+    // names the font too unless something else was asked for, so that a set
+    // has one name rather than two that have to be kept in step.
+    final family = results.option('family') ?? className ?? _defaultFamily;
+
+    if (className == null) {
+      for (final describesBindings in [
+        if (extensionTypeName != null) '--extension-name',
+        if (results.option('library') != null) '--library',
+        if (results.flag('index')) '--index',
+      ]) {
         usageException(
-          'An index library lists the icons the bindings declare, so it needs '
-          'them; drop --index or drop --no-bindings.',
+          '$describesBindings describes the Dart bindings, which are only '
+          'written when --class-name names a class to put them in.',
         );
       }
-      if (extensionTypeName != null) {
-        usageException(
-          'An extension type names the icons in the bindings, so it needs '
-          'them; drop --extension-name or drop --no-bindings.',
-        );
-      }
-    }
-    if (emitBindings) {
+    } else {
       if (!isPublicDartIdentifier(className)) {
         usageException(
           '"$className" cannot name a Dart class. Pass --class-name with a '
@@ -257,7 +255,6 @@ final class BuildCommand extends Command<int> {
       family: family,
       className: className,
       extensionTypeName: extensionTypeName,
-      emitBindings: emitBindings,
       libraryFileName: libraryFileName,
       packageName: packageName,
       axisSet: IconAxisSet([
@@ -320,6 +317,10 @@ final class BuildCommand extends Command<int> {
     }
     return 0;
   }
+
+  /// The family a build falls back to when it is told neither a family nor a
+  /// class to name one after.
+  static const _defaultFamily = 'CustomIcons';
 
   static int _parseCodePoint(String value) {
     final normalized = value.toLowerCase().replaceFirst(

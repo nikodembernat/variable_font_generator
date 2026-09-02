@@ -910,7 +910,7 @@ void main() {
   });
 
   group('runBuild refuses impossible builds', () {
-    test('will not write an index with no bindings for it to list', () {
+    test('will not write an index with no class to declare it from', () {
       final temporary = Directory.systemTemp.createTempSync('vfg-bindings-no-');
       addTearDown(() => temporary.deleteSync(recursive: true));
       expect(
@@ -919,9 +919,7 @@ void main() {
             inputDirectory: fixtureDirectory,
             outputDirectory: temporary.path,
             family: 'ProbeIcons',
-            className: 'ProbeIcons',
             libraryFileName: 'probe_icons.dart',
-            emitBindings: false,
             emitIndex: true,
             timestamp: fixtureTimestamp,
             names: const FontNames(family: 'ProbeIcons'),
@@ -931,7 +929,7 @@ void main() {
       );
     });
 
-    test('writes the font and nothing else when bindings are off', () {
+    test('writes the font and nothing else when no class is named', () {
       final temporary = Directory.systemTemp.createTempSync('vfg-bindings-no-');
       addTearDown(() => temporary.deleteSync(recursive: true));
       final result = runBuild(
@@ -939,9 +937,7 @@ void main() {
           inputDirectory: fixtureDirectory,
           outputDirectory: temporary.path,
           family: 'ProbeIcons',
-          className: 'ProbeIcons',
           libraryFileName: 'probe_icons.dart',
-          emitBindings: false,
           timestamp: fixtureTimestamp,
           names: const FontNames(family: 'ProbeIcons'),
         ),

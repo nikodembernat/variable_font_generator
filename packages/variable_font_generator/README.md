@@ -76,7 +76,10 @@ packages/my_icons/
     └── my_icons.dart            # class MyIcons { static const IconData house = ...; }
 ```
 
-`--no-bindings` writes the font alone, for a project that is not Flutter's.
+Naming a class is the whole of the request for bindings: without `--class-name`
+the font is written alone, which is what a project that is not Flutter's wants.
+The class names the font too, so `--family` is only needed when the font should
+be called something else — or when there is no class to name it after.
 
 Two things are being asked for there, and they are separate. `--pubspec` says
 the output directory is a package, which is what puts the font under `lib/` —
@@ -134,9 +137,9 @@ silently changes what an already-published build draws.
 
 ```
 --output, -o        Where everything is written.            (build/icons)
---family            The font family name.                   (CustomIcons)
---no-bindings       Write the font alone, without the Dart bindings.
---class-name        The generated Dart class.               (the family name)
+--family            The font family name.       (--class-name, or CustomIcons)
+--class-name        The class to hold the icons. Naming one asks for the
+                    bindings; without it only the font is written.
 --extension-name    An extension type over IconData to give the icons.
 --package           Names the package in fontPackage on every icon.
 --library           File name of the generated library.

@@ -123,8 +123,18 @@ void main() {
     });
 
     test('rejects an extension type name that is not one either', () async {
-      await expectUsageError(['--extension-name', 'my-icon-data']);
-      await expectUsageError(['--extension-name', 'extension']);
+      await expectUsageError([
+        '--class-name',
+        'ProbeIcons',
+        '--extension-name',
+        'my-icon-data',
+      ]);
+      await expectUsageError([
+        '--class-name',
+        'ProbeIcons',
+        '--extension-name',
+        'extension',
+      ]);
     });
 
     test('refuses to let the class and the extension type share a name', () {
@@ -141,9 +151,10 @@ void main() {
       );
     });
 
-    test('refuses an index or an extension type with no bindings', () async {
-      await expectUsageError(['--no-bindings', '--index']);
-      await expectUsageError(['--no-bindings', '--extension-name', 'Icon']);
+    test('refuses what describes bindings when no class is named', () async {
+      await expectUsageError(['--index']);
+      await expectUsageError(['--extension-name', 'ProbeIconData']);
+      await expectUsageError(['--library', 'probe_icons.dart']);
     });
   });
 
@@ -155,7 +166,7 @@ void main() {
         fixtureDirectory,
         '--output',
         directory.path,
-        '--family',
+        '--class-name',
         'ProbeIcons',
         '--extension-name',
         'ProbeIconData',
@@ -184,7 +195,7 @@ void main() {
       );
     });
 
-    test('a font on its own when the bindings are turned off', () async {
+    test('a font on its own when no class is named', () async {
       final directory = makeTemporaryDirectory();
       final result = await run([
         'build',
@@ -193,7 +204,6 @@ void main() {
         directory.path,
         '--family',
         'ProbeIcons',
-        '--no-bindings',
         '--summary',
         p.join(directory.path, 'summary.txt'),
       ]);
@@ -214,6 +224,59 @@ void main() {
       expect(summary.keys, isNot(contains('bindings')));
       expect(summary.keys, isNot(contains('class-name')));
       expect(summary['font'], endsWith('ProbeIcons.ttf'));
+    });
+  });
+
+  group('the command line names the font', () {
+    Future<Map<String, String>> summaryFor(List<String> arguments) async {
+      final directory = makeTemporaryDirectory();
+      final summary = p.join(directory.path, 'summary.txt');
+      final result = await run([
+        'build',
+        fixtureDirectory,
+        '--output',
+        directory.path,
+        ...arguments,
+        '--summary',
+        summary,
+      ]);
+      expect(result.code, 0);
+      return readSummary(summary);
+    }
+
+    test('after the class, so that a set has one name and not two', () async {
+      final summary = await summaryFor(['--class-name', 'ProbeIcons']);
+      expect(summary['family'], 'ProbeIcons');
+      expect(summary['class-name'], 'ProbeIcons');
+      expect(summary['font'], endsWith('ProbeIcons.ttf'));
+    });
+
+    test('as it was told to, when it was told', () async {
+      final summary = await summaryFor([
+        '--family',
+        'Brand',
+        '--class-name',
+        'ProbeIcons',
+      ]);
+      expect(summary['family'], 'Brand', reason: 'the family it was given');
+      expect(summary['class-name'], 'ProbeIcons');
+      expect(summary['font'], endsWith('Brand.ttf'));
+    });
+
+    test('from the family alone when there is no class to name it', () async {
+      // The reason --family survives having a class to fall back on: a build
+      // with no bindings has no class, and the font still needs a name.
+      final summary = await summaryFor(['--family', 'Brand']);
+      expect(summary['family'], 'Brand');
+      expect(summary.keys, isNot(contains('class-name')));
+      expect(summary.keys, isNot(contains('bindings')));
+      expect(summary['font'], endsWith('Brand.ttf'));
+    });
+
+    test('with something rather than nothing when told neither', () async {
+      final summary = await summaryFor([]);
+      expect(summary['family'], 'CustomIcons');
+      expect(summary.keys, isNot(contains('class-name')));
     });
   });
 

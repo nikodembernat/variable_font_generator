@@ -4,8 +4,12 @@
   every generated icon that type, so a signature can ask for an icon from this
   set rather than any icon at all. It is erased during compilation, so the
   values stay `IconData` instances and icon tree shaking keeps working.
-- `--no-bindings` writes the font on its own, for a project that is not
-  Flutter's.
+- **Breaking**: naming a class is what asks for the Flutter bindings.
+  `--class-name` no longer defaults to the family name, and without it only the
+  font is written — which is what a project that is not Flutter's wants.
+  `--family` falls back to the class name instead, so that a set has one name
+  rather than two that have to be kept in step, and stays for the build that
+  has no class to name its font after.
 - `--summary` writes a `key=value` list of everything the build produced.
   Pointing it at `$GITHUB_OUTPUT` turns those paths into a step's outputs.
 - The class and extension type names are checked before anything is written,

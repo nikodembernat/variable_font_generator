@@ -13,11 +13,10 @@ final class BuildOptions {
     required this.inputDirectory,
     required this.outputDirectory,
     required this.family,
-    required this.className,
     required this.libraryFileName,
     required this.names,
+    this.className,
     this.extensionTypeName,
-    this.emitBindings = true,
     this.packageName,
     this.axisSet = IconAxisSet.material,
     this.metrics = const FontMetrics(),
@@ -44,8 +43,12 @@ final class BuildOptions {
   /// The font family name.
   final String family;
 
-  /// The name of the generated Dart class.
-  final String className;
+  /// The name of the generated Dart class, or `null` to write no bindings.
+  ///
+  /// Naming a class is the whole of the request for them. A build that only
+  /// wants the font — because the icons are for a web page, or for a project
+  /// that is not Flutter's — leaves it unset.
+  final String? className;
 
   /// The file name of the generated Dart library, without a directory.
   final String libraryFileName;
@@ -53,12 +56,6 @@ final class BuildOptions {
   /// The name of an extension type wrapping `IconData`, or `null` to leave the
   /// icons as plain `IconData`.
   final String? extensionTypeName;
-
-  /// Whether the Flutter bindings are written at all.
-  ///
-  /// A build that only wants the font — because the icons are for a web page,
-  /// or for a project that is not Flutter's — can turn them off.
-  final bool emitBindings;
 
   /// The strings that go into the font's `name` table.
   final FontNames names;

@@ -56,9 +56,9 @@ it writes the font, and the Flutter bindings if you name a class to put them in:
 
 `class-name` names the class holding every icon, and naming one is the whole of
 the request for bindings: leave it out and the font is written on its own, which
-is what a project that is not Flutter's wants. It names the font family and the
-font file too, so a set has one name rather than two that have to be kept in
-step.
+is what a project that is not Flutter's wants. It names the font too, so
+`family` is only needed when the font should be called something else — or when
+there is no class to name it after.
 
 `extension-name` declares an extension type wrapping `IconData` for the icons to
 have, so a signature can ask for an icon from this set rather than any icon at
@@ -87,6 +87,7 @@ Named the way the command line names them.
 | --- | --- | --- |
 | `icons` | **required** | the directory of SVG files, searched recursively |
 | `output` | `build/icons` | where the font and the bindings are written |
+| `family` | `class-name` | the font family, and the font file's name |
 | `class-name` | — | the class to hold the icons, such as `LucideIcons`. Naming one asks for the bindings, and names the font |
 | `extension-name` | — | an extension type over `IconData`, such as `LucideIconData`. Needs `class-name` |
 | `package` | — | the package named in `fontPackage` on every icon |

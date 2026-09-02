@@ -15,14 +15,18 @@ inputs:
   output:
     description: The directory the font and everything beside it is written to.
     default: build/icons
+  family:
+    description: >-
+      The font family name, which also names the generated font file. Defaults
+      to class-name, so that a set has one name rather than two that have to be
+      kept in step — and is how a build with no class still names its font.
+      With neither, the family is CustomIcons.
+    default: ''
   class-name:
     description: >-
       The Dart class to hold every icon, such as LucideIcons. Naming one is
       what asks for the Flutter bindings; leave it out and the font is written
-      on its own, which is what a project that is not Flutter's wants. It
-      names the font family and the font file too, so that a set has one name
-      rather than two that have to be kept in step. Without it the family is
-      CustomIcons.
+      on its own, which is what a project that is not Flutter's wants.
     default: ''
   extension-name:
     description: >-
@@ -271,6 +275,7 @@ runs:
         SUMMARY: ${{ steps.plan.outputs.summary }}
         ICONS: ${{ inputs.icons }}
         OUTPUT: ${{ inputs.output }}
+        FAMILY: ${{ inputs.family }}
         CLASS_NAME: ${{ inputs.class-name }}
         EXTENSION_NAME: ${{ inputs.extension-name }}
         PACKAGE: ${{ inputs.package }}
@@ -302,6 +307,15 @@ runs:
           exit 1
         fi
 
+        # Naming a class is the whole of the request for bindings, so anything
+        # that only describes them has nothing to attach to without one. The
+        # generator refuses this too; saying it here names the input the
+        # workflow actually wrote.
+        if [ -z "$CLASS_NAME" ] && [ -n "$EXTENSION_NAME" ]; then
+          echo "::error::extension-name: describes the Dart bindings, which are only written when class-name: names a class to put them in."
+          exit 1
+        fi
+
         # Sub directories are searched, so that pointing this at a tree of
         # icons finds them rather than reporting that there are none.
         arguments=(build "$ICONS" --output "$OUTPUT" --recursive)
@@ -311,6 +325,9 @@ runs:
             arguments+=("$1" "$2")
           fi
         }
+        option --family "$FAMILY"
+        option --class-name "$CLASS_NAME"
+        option --extension-name "$EXTENSION_NAME"
         option --axes "$AXES"
         option --units-per-em "$UNITS_PER_EM"
         option --curve-tolerance "$CURVE_TOLERANCE"
@@ -325,19 +342,6 @@ runs:
         option --vendor-id "$VENDOR_ID"
         option --mirror-rtl "$MIRROR_RTL"
         option --package "$PACKAGE"
-
-        # Naming a class is the whole of the request for bindings, and the
-        # class names the font as well, so that a set has one name rather than
-        # two that have to be kept in step.
-        if [ -n "$CLASS_NAME" ]; then
-          arguments+=(--family "$CLASS_NAME" --class-name "$CLASS_NAME")
-          option --extension-name "$EXTENSION_NAME"
-        elif [ -n "$EXTENSION_NAME" ]; then
-          echo "::error::extension-name: describes the Dart bindings, which are only written when class-name: names a class to put them in."
-          exit 1
-        else
-          arguments+=(--no-bindings)
-        fi
 
         "$BINARY" "${arguments[@]}" --summary "$SUMMARY"
 
