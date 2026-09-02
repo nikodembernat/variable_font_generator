@@ -4,8 +4,8 @@ description: >-
   icons, together with ready-to-use Flutter IconData bindings. Supports the
   FILL, wght, GRAD and opsz axes that Flutter's Icon widget exposes.
 version: 0.2.0
-repository: https://github.com/nikodembernat/variable_font_generator
-issue_tracker: https://github.com/nikodembernat/variable_font_generator/issues
+repository: https://github.com/nikodembernat/variable-font-generator
+issue_tracker: https://github.com/nikodembernat/variable-font-generator/issues
 topics:
   - fonts
   - icons

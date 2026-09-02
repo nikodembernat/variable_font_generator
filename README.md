@@ -41,7 +41,7 @@ This repository is a reusable action. Point it at a directory of SVG files and
 it writes the font, and the Flutter bindings if you want them:
 
 ```yaml
-- uses: nikodembernat/variable_font_generator@master
+- uses: nikodembernat/variable-font-generator@master
   id: icons
   with:
     icons: assets/icons
@@ -112,7 +112,7 @@ The font and the bindings are generated files, so a workflow can keep them up to
 date rather than asking a person to remember:
 
 ```yaml
-- uses: nikodembernat/variable_font_generator@master
+- uses: nikodembernat/variable-font-generator@master
   with:
     icons: assets/icons
     output: packages/my_icons

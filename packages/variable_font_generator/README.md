@@ -51,7 +51,7 @@ carries one for Linux, macOS and Windows; `tool/build_binary.sh` in the
 repository builds one from source in a few seconds.
 
 In GitHub Actions there is nothing to install: the repository is a reusable
-action. See [its README](https://github.com/nikodembernat/variable_font_generator#in-github-actions).
+action. See [its README](https://github.com/nikodembernat/variable-font-generator#in-github-actions).
 
 ## Build a font
 
