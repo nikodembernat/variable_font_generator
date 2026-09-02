@@ -186,15 +186,29 @@ Each icon is stroked into an outline in which every point is an affine function
 of the stroke width. Re-stroking at another weight therefore produces an outline
 with the same contours, the same points, in the same order — which is precisely
 what OpenType's `gvar` table needs in order to store the difference between
-weights. Getting that invariant right is most of the work; the stroker also
-handles the cases naive offsetting gets wrong:
+weights.
+
+Affine, and not merely continuous, is the part that has to be got right. Three
+axes change the stroke width, and a font reaches a position that moves more than
+one of them by adding up what each of them does on its own. That is the same
+answer as moving them together only while the outline is affine in the width
+they add up to. A bend anywhere in that line — a hole that stops shrinking, a
+point that stops travelling — is a bend each axis then contributes separately,
+and the outline comes apart at the corners of the design space where an
+application actually works: a heavy weight against dense text at a small size.
+So every decision that is not affine is made once, from the artwork, and the
+geometry that follows from it is a straight line.
+
+With that settled, the stroker handles the cases naive offsetting gets wrong:
 
 - a path that crosses itself is cut at the crossings and stroked in pieces, so
   the fill rule does not punch a hole where the two passes overlap;
-- a hole closes at the weight the shape runs out of room for it and stays
-  closed, rather than turning inside out and punching through the solid the
-  stroke has become. Which weight that is comes from the artwork, so the eyes of
-  a skull are rings while there is room for rings and solid once there is not;
+- a shape with no room for a hole does not get one, rather than turning its
+  inner boundary inside out and punching it through the solid the stroke has
+  become;
+- which way round a hole winds is read off a stroke thin enough that every shape
+  still has an inside, because a hole the stroke has just closed encloses
+  nothing and has no direction to read;
 - the corner of a join the stroke turns into is handed out as a contour of its
   own, which fills the slit that the offset leaving that corner would otherwise
   cut across the ink it curves back over;
@@ -271,9 +285,7 @@ how far the shape was stretched. Variation interpolation is linear, so the
 design space carries a master wherever two effects meet: the default, each axis
 alone at both ends, and each of the others against a fill, both at the handover
 and at full. Twenty-one in all, or twenty-seven with `wdth`, which makes
-interpolation exact everywhere the design space itself bends. The one bend it
-cannot know about in advance is the width at which a hole closes, which the
-artwork puts where it likes; see the limitations.
+interpolation exact everywhere rather than approximate.
 
 Stroke width and width need no master together, which is the whole reason for
 defining width the way it is: moving the centre line and leaving the stroke
@@ -295,7 +307,7 @@ The package does not check itself against itself.
   mean overlap is 0.992 and the worst is 0.973.
 - The same comparison runs away from the default weight, against the artwork
   re-stroked to the width that weight means. Over the same 1798 icons the mean
-  is 0.983 at weight 100 and 0.993 at weight 700. What is left at the heavy end
+  is 0.983 at weight 100 and 0.994 at weight 700. What is left at the heavy end
   is mostly the reference disagreeing with itself; see the limitations below.
 - The **OpenType Sanitizer** — the validator Chrome and Firefox use to decide
   whether to load a web font — accepts the output.
@@ -322,11 +334,14 @@ The package does not check itself against itself.
   use them; if yours does, flatten it first.
 - A `transform` with a non-uniform scale scales the stroke by the geometric mean
   of the two factors, rather than making it elliptical as SVG would.
-- The weight a hole closes at is a bend in an otherwise straight line, and a
-  font can only describe bends where it has masters. There is one at the default
-  weight and one at each end of every axis, so a hole that closes between two of
-  them closes gradually over that stretch instead of exactly where the artwork
-  would have it.
+- Whether a shape has room for a hole is decided once, at the default weight,
+  and holds at every other. It has to be: the answer changes with the weight,
+  and a weight is three axes added together, so anything that changes with it
+  is a bend the axes would each contribute separately. A shape with no room for
+  a hole at the default keeps none at a lighter weight, where the artwork would
+  have one. Shapes that narrow are the ones this reaches — a shape roomy enough
+  to keep its hole keeps it at every weight, which is why the eyes of Lucide's
+  skull are rings for as long as the artwork draws rings.
 - Where a renderer's own stroking degenerates, the generator does not follow it
   there. A circle of radius 0.5 stroked three units wide is a solid dot: every
   point within 2.5 units of the centre is under the stroke. Draw it in a browser

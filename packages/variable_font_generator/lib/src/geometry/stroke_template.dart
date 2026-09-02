@@ -10,6 +10,15 @@ import 'package:variable_font_generator/src/geometry/vec2.dart';
 /// while producing outlines that are point-for-point identical in structure,
 /// which is the precondition for storing the difference between them as `gvar`
 /// deltas.
+///
+/// Affine, and not merely continuous. Three axes change the stroke width, and a
+/// font reaches a position that moves more than one of them by adding up what
+/// each of them does on its own — which is the same answer as moving them
+/// together only while this line is straight. A bend in it is a bend each axis
+/// then contributes separately, and two axes past the same bend overshoot it by
+/// twice as much as either should. So anything about the outline that a bend
+/// would express has to be decided once, from the artwork, before the width is
+/// known.
 @immutable
 final class StrokePointTemplate {
   /// Creates a template point.
@@ -119,7 +128,6 @@ final class StrokeContourTemplate {
     required this.points,
     this.behaviour = ContourFillBehaviour.unaffected,
     this.collapseTarget,
-    this.emptyAtHalfWidth,
   }) : assert(
          (behaviour != ContourFillBehaviour.collapse &&
                  behaviour != ContourFillBehaviour.shrink &&
@@ -140,16 +148,6 @@ final class StrokeContourTemplate {
   /// The target never depends on the stroke width, so the collapse stays well
   /// defined at every weight.
   final Vec2? collapseTarget;
-
-  /// The half width at which this contour stops enclosing anything, if it ever
-  /// does.
-  ///
-  /// A hole is only a hole while the shape around it is wider than the stroke.
-  /// Past that the two sides of the shape have met in the middle and the
-  /// contour is inside out, so it is pulled onto [collapseTarget] and left
-  /// there, where it punches nothing. See `Stroker`, which works out where that
-  /// happens.
-  final double? emptyAtHalfWidth;
 
   /// Whether filling closes this contour's hole.
   bool get collapsesWhenFilled => behaviour == ContourFillBehaviour.collapse;
@@ -172,11 +170,8 @@ final class StrokeContourTemplate {
             point.y,
           );
     final target = collapseTarget == null ? null : widen(collapseTarget!);
-    final empty = emptyAtHalfWidth;
     Vec2 at(StrokePointTemplate point, double scale) =>
-        empty != null && target != null && scale >= empty
-        ? target
-        : widen(point.base) + point.direction * scale;
+        widen(point.base) + point.direction * scale;
 
     return Contour([
       for (final point in points)
@@ -211,7 +206,6 @@ final class StrokeContourTemplate {
     points: points.reversed.toList(),
     behaviour: behaviour,
     collapseTarget: collapseTarget,
-    emptyAtHalfWidth: emptyAtHalfWidth,
   );
 
   /// Returns a copy with a different [behaviour].
@@ -222,7 +216,6 @@ final class StrokeContourTemplate {
     points: points,
     behaviour: newBehaviour,
     collapseTarget: target ?? collapseTarget,
-    emptyAtHalfWidth: emptyAtHalfWidth,
   );
 
   @override
@@ -304,7 +297,6 @@ final class StrokeTemplate {
           final target? => transform(target) + translation,
           null => null,
         },
-        emptyAtHalfWidth: contour.emptyAtHalfWidth,
       ),
   ]);
 

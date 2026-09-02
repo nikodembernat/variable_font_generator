@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:meta/meta.dart';
 import 'package:variable_font_generator/src/geometry/bezier.dart';
 import 'package:variable_font_generator/src/geometry/path.dart';
+import 'package:variable_font_generator/src/geometry/polygon.dart';
 import 'package:variable_font_generator/src/geometry/stroke_style.dart';
 import 'package:variable_font_generator/src/geometry/stroke_template.dart';
 import 'package:variable_font_generator/src/geometry/vec2.dart';
@@ -237,13 +238,7 @@ final class Stroker {
     final secondArea = _templateArea(second, at: _orientingHalfWidth);
     final outerIsFirst = firstArea.abs() >= secondArea.abs();
     final outer = outerIsFirst ? first : second;
-    final inner = _stoppedWhenEmpty(outerIsFirst ? second : first);
-
-    if (filled) {
-      // The shape is painted, so it has no hole to begin with: one solid
-      // contour covering the interior and the stroke together.
-      return StrokeTemplate([_orientSolid(outer)]);
-    }
+    final inner = outerIsFirst ? second : first;
 
     // Only the outer side's corners are handed out. The inner side's would fill
     // in the hole they sit in rather than the ink.
@@ -256,11 +251,17 @@ final class Stroker {
       ),
     );
 
+    if (filled || _hasSwallowedItsInside(elements, inner)) {
+      // Either the shape is painted, so it has no hole to begin with, or the
+      // stroke is thick enough to have covered the whole inside of it. Both
+      // mean one solid boundary: it already covers the interior and the stroke
+      // together.
+      return StrokeTemplate([_orientSolid(outer), ...corners]);
+    }
+
     // The side enclosing less area is the hole the fill axis closes. It is
     // reversed so that it winds against the outer boundary and so punches
-    // through it rather than adding to it. Where the stroke has covered the
-    // whole inside of the shape the hole has already been pulled onto the
-    // middle of it and encloses nothing, so it punches nothing.
+    // through it rather than adding to it.
     return StrokeTemplate([
       _orientSolid(outer),
       ...corners,
@@ -269,10 +270,75 @@ final class Stroker {
           points: inner.reversed.points,
           behaviour: ContourFillBehaviour.collapse,
           collapseTarget: _centroidOf(elements),
-          emptyAtHalfWidth: inner.emptyAtHalfWidth,
         ),
       ),
     ]);
+  }
+
+  /// Whether the stroke is thick enough to have covered the whole inside of
+  /// the shape, leaving no room for a hole.
+  ///
+  /// Offsetting a boundary inwards only makes sense while the shape is wider
+  /// than the offset. Past that the inner boundary turns itself inside out and
+  /// starts tracing a shape again — a circle of radius `r` offset inwards by
+  /// `h > r` comes back as a circle of radius `h - r`, whose area is perfectly
+  /// respectable and gives no hint that anything is wrong. Punching that
+  /// through the outer boundary leaves a hole in the middle of what should be
+  /// solid ink.
+  ///
+  /// What actually decides it is how much room the shape has: a hole can only
+  /// exist where some point inside the centre line is further than the half
+  /// width from it. So the inner boundary's own points are measured against the
+  /// centre line, along with the centroid, and if none of them has that much
+  /// room the hole is dropped. Points at a corner sit right on the centre line
+  /// by construction, which is why this asks for the largest clearance rather
+  /// than the smallest.
+  ///
+  /// The judgement is made once, at a half width of one, and holds at every
+  /// weight. That is deliberate: the alternative is a shape whose number of
+  /// contours depends on how heavily it is drawn, which is exactly what
+  /// variation deltas cannot express.
+  bool _hasSwallowedItsInside(
+    List<_Element> elements,
+    StrokeContourTemplate inner,
+  ) {
+    const halfWidth = 1.0;
+    final centreLine = [for (final element in elements) element.start];
+    if (centreLine.length < 3) {
+      return false;
+    }
+
+    // A shape several stroke widths across cannot have been swallowed, and
+    // measuring every point against every edge is the expensive part.
+    var minX = double.infinity;
+    var minY = double.infinity;
+    var maxX = double.negativeInfinity;
+    var maxY = double.negativeInfinity;
+    for (final point in centreLine) {
+      minX = math.min(minX, point.x);
+      minY = math.min(minY, point.y);
+      maxX = math.max(maxX, point.x);
+      maxY = math.max(maxY, point.y);
+    }
+    if (math.min(maxX - minX, maxY - minY) > 4 * halfWidth) {
+      return false;
+    }
+
+    var clearance = 0.0;
+    void consider(Vec2 point) {
+      if (!isPointInPolygon(point, centreLine)) {
+        return;
+      }
+      clearance = math.max(clearance, distanceToPolygon(point, centreLine));
+    }
+
+    consider(_centroidOf(elements));
+    for (final point in inner.points) {
+      consider(point.at(halfWidth));
+    }
+    // A little under the half width, so that rounding cannot turn a hole that
+    // only just exists into one that only just does not.
+    return clearance < halfWidth * 0.9;
   }
 
   /// The outline of a sub path that collapsed to a single point.
@@ -1107,85 +1173,6 @@ final class Stroker {
       _templateArea(contour, at: _orientingHalfWidth) < 0
       ? contour.reversed
       : contour;
-
-  /// Returns [contour] with every point stopped at the half width where the
-  /// contour stops enclosing anything.
-  ///
-  /// This is for the side of a closed sub path that faces inwards, which is the
-  /// hole the shape has in the middle. Offsetting a boundary inwards only means
-  /// something while the shape is wider than the offset: past that the boundary
-  /// turns itself inside out and starts tracing a shape again — a circle of
-  /// radius `r` offset inwards by `h > r` comes back as a circle of radius
-  /// `h - r`, whose area is perfectly respectable and gives no hint that
-  /// anything is wrong. Punching that through the outer boundary leaves a hole
-  /// in the middle of what should be solid ink, and it grows with the weight.
-  ///
-  /// Where the whole contour turns over, its area passes through zero on the
-  /// way, and every point of it is affine in the half width, so that area is a
-  /// quadratic and the half width it happens at is one of its roots. From there
-  /// on the contour is pulled onto the point it collapses to, where it encloses
-  /// nothing and so punches nothing.
-  ///
-  /// Only the whole contour turning over is caught this way, which is the
-  /// point. A corner of the shape too tightly rounded for the stroke turns over
-  /// on its own, and there the fold is the right answer rather than the wrong
-  /// one: it fills the corner in exactly as far as the two sides meeting there
-  /// reach, which is where the boundary of a shrunken shape has its corner.
-  static StrokeContourTemplate _stoppedWhenEmpty(
-    StrokeContourTemplate contour,
-  ) {
-    final points = contour.points;
-    var constant = 0.0;
-    var linear = 0.0;
-    var quadratic = 0.0;
-    for (var index = 0; index < points.length; index++) {
-      final current = points[index];
-      final next = points[(index + 1) % points.length];
-      constant += current.base.cross(next.base);
-      linear +=
-          current.base.cross(next.direction) +
-          current.direction.cross(next.base);
-      quadratic += current.direction.cross(next.direction);
-    }
-    return StrokeContourTemplate(
-      points: points,
-      behaviour: contour.behaviour,
-      collapseTarget: contour.collapseTarget,
-      emptyAtHalfWidth: _smallestPositiveRoot(constant, linear, quadratic),
-    );
-  }
-
-  /// The smallest strictly positive root of `constant + linear * x +
-  /// quadratic * x * x`, or `null` when there is none.
-  static double? _smallestPositiveRoot(
-    double constant,
-    double linear,
-    double quadratic,
-  ) {
-    const epsilon = 1e-12;
-    if (quadratic.abs() < epsilon) {
-      if (linear.abs() < epsilon) {
-        return null;
-      }
-      final root = -constant / linear;
-      return root > epsilon ? root : null;
-    }
-    final discriminant = linear * linear - 4 * quadratic * constant;
-    if (discriminant < 0) {
-      return null;
-    }
-    final square = math.sqrt(discriminant);
-    final roots = [
-      (-linear - square) / (2 * quadratic),
-      (-linear + square) / (2 * quadratic),
-    ]..sort();
-    for (final root in roots) {
-      if (root > epsilon) {
-        return root;
-      }
-    }
-    return null;
-  }
 
   /// The area centroid of the polygon traced by the centre lines, used as the
   /// point an inner contour collapses onto when the fill axis closes it.

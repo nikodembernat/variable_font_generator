@@ -529,36 +529,11 @@ void main() {
       );
     });
 
-    test('leaves no hole to punch through the solid it has become', () {
+    test('leaves a single solid contour with no inverted hole', () {
       final outline = const Stroker()
           .strokeSubPath(tiny)
           .evaluate(strokeScale: 1);
-      expect(outline.contours.last.signedArea, closeTo(0, 1e-9));
-    });
-
-    test('keeps the hole at a weight that still leaves room for one', () {
-      // The same circle drawn at a quarter of the width. Its radius is half a
-      // unit and the stroke reaches a quarter of one inside it, so a quarter of
-      // a unit of hole is left: the weight a hole closes at belongs to the
-      // artwork, not to whichever weight the shape was measured at.
-      final outline = const Stroker()
-          .strokeSubPath(tiny)
-          .evaluate(strokeScale: 0.25);
-      expect(
-        outline.contours.last.signedArea.abs(),
-        closeTo(math.pi * 0.25 * 0.25, 0.01),
-      );
-    });
-
-    test('closes the hole once and leaves it closed', () {
-      final template = const Stroker().strokeSubPath(tiny);
-      for (final scale in [0.5, 0.75, 1.0, 2.0, 4.0]) {
-        expect(
-          template.evaluate(strokeScale: scale).contours.last.signedArea,
-          closeTo(0, 1e-9),
-          reason: 'at a stroke scale of $scale',
-        );
-      }
+      expect(outline.contours, hasLength(1));
     });
 
     test('keeps the hole of a shape with room to spare', () {
@@ -574,6 +549,31 @@ void main() {
       expect(
         outline.contours.last.signedArea.abs(),
         closeTo(math.pi * 3 * 3, 0.5),
+      );
+    });
+  });
+
+  group('a shape whose hole closes at the width it was measured at', () {
+    // Lucide's skull has two: a circle of radius one, stroked half a unit
+    // either side, has an inner boundary of radius nothing. It encloses no
+    // area, so there is no direction to be read from it, and which way round a
+    // hole goes cannot be decided where the shape has no inside left. It has
+    // to be read off a stroke thin enough that every shape still has one.
+    final eye = _circle(Vec2.zero, 1);
+
+    test('still punches its hole at a lighter weight', () {
+      final outline = const Stroker()
+          .strokeSubPath(eye)
+          .evaluate(strokeScale: 0.5);
+      expect(outline.contours, hasLength(2));
+      expect(
+        outline.contours.last.signedArea.sign,
+        -outline.contours.first.signedArea.sign,
+        reason: 'the hole must wind against the boundary around it',
+      );
+      expect(
+        outline.contours.last.signedArea.abs(),
+        closeTo(math.pi * 0.5 * 0.5, 0.02),
       );
     });
   });
@@ -716,31 +716,29 @@ void main() {
     });
 
     test('moves every point exactly linearly with the stroke scale', () {
-      // Except a hole that has already closed, which stops where it closed and
-      // stays there. That is the one bend in the line, and a font puts a master
-      // on it rather than interpolating through it.
+      // Not nearly linearly: exactly. A font reaches a position that moves
+      // several stroke axes at once by adding up what each of them does on its
+      // own, and that is only the same answer as moving them together while the
+      // outline is an affine function of the width they add up to. A bend
+      // anywhere in that line — a hole that stops shrinking, a point that stops
+      // travelling — is a bend each axis then contributes separately, and the
+      // outline comes apart at the corners of the design space.
       for (final entry in fixtureTemplates.entries) {
-        for (final contour in entry.value.contours) {
-          final closes = contour.emptyAtHalfWidth;
-          if (closes != null && closes < 2.5) {
-            continue;
-          }
-          final low = contour.evaluate(strokeScale: 0.5, fill: 0).points;
-          final high = contour.evaluate(strokeScale: 2.5, fill: 0).points;
-          final middle = contour.evaluate(strokeScale: 1.5, fill: 0).points;
-          for (var index = 0; index < middle.length; index++) {
-            final blend = low[index].position.lerp(high[index].position, 0.5);
-            expect(
-              middle[index].position.x,
-              closeTo(blend.x, 1e-8),
-              reason: '${entry.key} point $index x',
-            );
-            expect(
-              middle[index].position.y,
-              closeTo(blend.y, 1e-8),
-              reason: '${entry.key} point $index y',
-            );
-          }
+        final low = entry.value.evaluate(strokeScale: 0.5).allPoints;
+        final high = entry.value.evaluate(strokeScale: 2.5).allPoints;
+        final middle = entry.value.evaluate(strokeScale: 1.5).allPoints;
+        for (var index = 0; index < middle.length; index++) {
+          final blend = low[index].position.lerp(high[index].position, 0.5);
+          expect(
+            middle[index].position.x,
+            closeTo(blend.x, 1e-8),
+            reason: '${entry.key} point $index x',
+          );
+          expect(
+            middle[index].position.y,
+            closeTo(blend.y, 1e-8),
+            reason: '${entry.key} point $index y',
+          );
         }
       }
     });
