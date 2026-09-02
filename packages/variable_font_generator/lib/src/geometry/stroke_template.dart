@@ -45,7 +45,7 @@ enum ContourFillBehaviour {
   /// closes the hole it was punching.
   collapse,
 
-  /// The contour's stroke narrows to nothing by half fill.
+  /// The contour's stroke narrows to nothing by [handoverFill].
   ///
   /// A stroke of zero width traces its own centre line out and back, enclosing
   /// no area at all, so the contour stops contributing. Used for a detail
@@ -54,15 +54,15 @@ enum ContourFillBehaviour {
   /// and [knockOut] takes over.
   fadeOut,
 
-  /// The contour's stroke widens from nothing from half fill onwards, winding
-  /// the opposite way to the shape around it.
+  /// The contour's stroke widens from nothing from [handoverFill] onwards,
+  /// winding the opposite way to the shape around it.
   ///
   /// This is what cuts a detail back out of a filled shape, the way a filled
   /// icon shows a tick as a gap in the solid rather than as a line on top of
   /// it.
   knockOut,
 
-  /// The contour shrinks onto a single point by half fill.
+  /// The contour shrinks onto a single point by [handoverFill].
   ///
   /// What [fadeOut] is for an open detail, this is for a closed one: a closed
   /// contour cannot be made to vanish by narrowing its stroke, because with no
@@ -70,7 +70,7 @@ enum ContourFillBehaviour {
   /// point instead.
   shrink,
 
-  /// The contour grows from a single point from half fill onwards.
+  /// The contour grows from a single point from [handoverFill] onwards.
   ///
   /// The counterpart of [shrink], and what cuts a closed shape back out of the
   /// larger one around it: the play triangle inside a circle would otherwise
@@ -78,17 +78,31 @@ enum ContourFillBehaviour {
   grow,
 }
 
-/// How far through its half of the fill a contour that gives way to another is.
+/// The fill at which a detail stops being drawn and starts being cut out.
 ///
-/// [ContourFillBehaviour.fadeOut] and [ContourFillBehaviour.shrink] are done by
-/// half fill; [ContourFillBehaviour.knockOut] and [ContourFillBehaviour.grow]
-/// start there. Neither pair may be anywhere at the same time. A stroke and its
-/// reversed copy are the same width wherever they overlap, so they cancel
-/// exactly: a detail sharing the fill with its own replacement disappears at
-/// half fill and comes back as a hairline outline of itself rather than as the
-/// gap it should be.
+/// Below it, only [ContourFillBehaviour.fadeOut] and
+/// [ContourFillBehaviour.shrink] enclose area; above it, only
+/// [ContourFillBehaviour.knockOut] and [ContourFillBehaviour.grow] do. The two
+/// may never be anywhere at once. A stroke and its reversed copy are the same
+/// width wherever they overlap, so they cancel exactly: a detail sharing the
+/// fill with its own replacement disappears in the middle and comes back as a
+/// hairline outline of itself rather than as the gap it should be.
+///
+/// Something has to give way to something at a single fill, and there the
+/// detail has no width at all. It is put before the middle rather than on it
+/// for two reasons. A hole shrinks onto a point over the whole axis, so the ink
+/// reaches most details well before the hole has finished closing, and the
+/// handover should follow the ink. And half is the fill a person is most likely
+/// to ask for by hand, which is the worst place to put the one value that
+/// cannot show a detail.
+const handoverFill = 0.4;
+
+/// How far through its side of [handoverFill] a contour is.
 double _handover(double fill, {required bool second}) =>
-    (second ? fill * 2 - 1 : 1 - fill * 2).clamp(0, 1);
+    (second
+            ? (fill - handoverFill) / (1 - handoverFill)
+            : 1 - fill / handoverFill)
+        .clamp(0, 1);
 
 /// A contour of a [StrokeTemplate].
 @immutable

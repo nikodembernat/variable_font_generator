@@ -113,7 +113,8 @@ export 'src/geometry/stroke_template.dart'
         ContourFillBehaviour,
         StrokeContourTemplate,
         StrokePointTemplate,
-        StrokeTemplate;
+        StrokeTemplate,
+        handoverFill;
 export 'src/geometry/stroker.dart' show Stroker;
 export 'src/geometry/vec2.dart' show Vec2;
 export 'src/raster/coverage_bitmap.dart' show CoverageBitmap;

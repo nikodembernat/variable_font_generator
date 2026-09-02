@@ -418,9 +418,10 @@ void main() {
     test('never has a knocked-out detail and its replacement at once', () {
       // The two cancel wherever they are the same size, because one is the
       // other wound backwards. Sharing the fill between them makes a detail
-      // vanish at half fill and come back as a hairline outline of itself
+      // vanish in the middle and come back as a hairline outline of itself
       // instead of as the gap it should be, so the handover is staggered: the
-      // drawn copy is gone by half fill and the replacement starts there.
+      // drawn copy is gone by `handoverFill` and the replacement starts
+      // there.
       for (final subPath in [line, square]) {
         final detail = const Stroker().strokeSubPath(
           subPath,

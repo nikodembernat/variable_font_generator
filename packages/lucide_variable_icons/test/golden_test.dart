@@ -118,12 +118,16 @@ void main() {
     await expectSheet(
       tester,
       'combined',
+      // One walk across the whole design space rather than five unrelated
+      // corners of it, so that a person reading the sheet can see what is
+      // meant to be changing: every axis moves the same way at once, from
+      // light and open on the left to heavy and filled on the right.
       settings: const [
-        IconThemeData(fill: 1, weight: 100),
-        IconThemeData(fill: 1, weight: 700),
-        IconThemeData(fill: 0.5, weight: 550, grade: 100, opticalSize: 30),
-        IconThemeData(weight: 700, grade: 200, opticalSize: 20),
-        IconThemeData(weight: 100, grade: -50, opticalSize: 48),
+        IconThemeData(fill: 0, weight: 100, grade: -50, opticalSize: 48),
+        IconThemeData(fill: 0.25, weight: 250, grade: -25, opticalSize: 40),
+        IconThemeData(fill: 0.5, weight: 400, grade: 0, opticalSize: 32),
+        IconThemeData(fill: 0.75, weight: 550, grade: 100, opticalSize: 26),
+        IconThemeData(fill: 1, weight: 700, grade: 200, opticalSize: 20),
       ],
     );
   });

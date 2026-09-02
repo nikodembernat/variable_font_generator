@@ -205,12 +205,19 @@ filled icon shows its detail as a gap cut out of the solid rather than losing it
 in the fill.
 
 The detail and the gap that replaces it never appear at the same time: the drawn
-copy is withdrawn by half fill and the gap opens from half fill on. They cannot
-share the axis, because a stroke and its reversed copy are the same width
-wherever they overlap and cancel exactly — a detail splitting the fill with its
-own replacement disappears in the middle and comes back as a hairline outline of
-itself. The price is that at exactly half fill a detail has no width, and the
-handover is what the extra master at half fill is for.
+copy is withdrawn by fill 0.4 and the gap opens from there on. They cannot share
+the axis, because a stroke and its reversed copy are the same width wherever
+they overlap and cancel exactly — a detail splitting the fill with its own
+replacement disappears in the middle and comes back as a hairline outline of
+itself.
+
+Something has to give way to something at one fill, and at that fill the detail
+has no width. It sits before the middle rather than on it because a hole shrinks
+onto a point over the whole axis, so the ink reaches most details well before
+the hole has finished closing and the handover should follow the ink — and
+because half is the fill a person is most likely to ask for by hand, which is
+the worst place to put the one value that cannot show a detail. The extra master
+the fill axis carries sits on that handover.
 
 An open stroke that is not inside anything has no interior to fill, so `FILL`
 leaves it alone. That is a real limitation rather than an oversight: an arrow

@@ -1,6 +1,7 @@
 import 'package:meta/meta.dart';
 import 'package:variable_font_generator/src/font/tables/fvar_table.dart';
 import 'package:variable_font_generator/src/font/tables/stat_table.dart';
+import 'package:variable_font_generator/src/geometry/stroke_template.dart';
 import 'package:variable_font_generator/src/variations/font_axis.dart';
 import 'package:variable_font_generator/src/variations/variation_model.dart';
 
@@ -257,13 +258,15 @@ final class IconAxisSet {
       const <String, double>{},
       for (final axis in scaleAxes)
         for (final extreme in extremesOf(axis)) {axis.axis.tag: extreme},
-      // Half fill as well as full, because a detail hands over to the copy
-      // that replaces it there: the outline is withdrawn by half fill and the
-      // gap opens from half fill on, which is a knee rather than a straight
-      // line and needs a master sitting on it.
+      // The handover fill as well as the full one, because a detail stops
+      // being drawn and starts being cut out there: a knee rather than a
+      // straight line, which needs a master sitting on it.
       for (final fillAxis in fillAxes)
         for (final fillExtreme in extremesOf(fillAxis))
-          for (final fillPosition in [fillExtreme / 2, fillExtreme]) ...[
+          for (final fillPosition in [
+            fillExtreme * handoverFill,
+            fillExtreme,
+          ]) ...[
             {fillAxis.axis.tag: fillPosition},
             for (final axis in scaleAxes)
               for (final extreme in extremesOf(axis))
