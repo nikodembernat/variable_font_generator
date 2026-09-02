@@ -63,13 +63,15 @@ an icon from this set rather than any icon at all. Leave `extension-name` out
 and the icons stay plain `IconData`; set `bindings: false` and only the font is
 written.
 
-The action runs a compiled binary, downloading the one published with the
-release it is pinned to. If there is none — an unreleased ref, a fork, a `uses:
-./` — it compiles the generator from its own checkout instead and caches the
-result, so either way nothing has to be installed in the workflow.
+The action runs a compiled binary. Pinned to a version tag it takes the one
+published with that release; pinned to anything else — a branch, a commit, a
+fork, a `uses: ./` — it compiles the generator from its own checkout and caches
+the result against the hash of that source, because only a tag says which
+published binary matches the source being run. Either way there is nothing to
+install in the workflow.
 
-`@main` tracks this repository. Pinning to a release tag, `@v0.2.0`, fixes the
-version and is what lets the binary be downloaded rather than built.
+So `@main` always works, and always compiles; `@v0.2.0` fixes the version and
+downloads.
 
 ### Inputs
 
