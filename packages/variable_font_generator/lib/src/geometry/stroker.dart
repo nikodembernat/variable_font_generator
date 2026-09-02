@@ -102,10 +102,18 @@ final class Stroker {
   /// [filled] mirrors the SVG `fill` property: when the shape is painted as
   /// well as stroked, a closed sub path becomes a single solid contour covering
   /// both the interior and the stroke, instead of an outline with a hole.
-  StrokeTemplate strokePath(Path path, {bool filled = false}) {
+  StrokeTemplate strokePath(
+    Path path, {
+    bool filled = false,
+    bool knockedOutWhenFilled = false,
+  }) {
     var template = StrokeTemplate.empty;
     for (final subPath in path.subPaths) {
-      template += strokeSubPath(subPath, filled: filled);
+      template += strokeSubPath(
+        subPath,
+        filled: filled,
+        knockedOutWhenFilled: knockedOutWhenFilled,
+      );
     }
     return template;
   }
@@ -113,7 +121,25 @@ final class Stroker {
   /// Strokes a single [subPath].
   ///
   /// See [strokePath] for the meaning of [filled].
-  StrokeTemplate strokeSubPath(SubPath subPath, {bool filled = false}) {
+  StrokeTemplate strokeSubPath(
+    SubPath subPath, {
+    bool filled = false,
+    bool knockedOutWhenFilled = false,
+  }) {
+    if (knockedOutWhenFilled) {
+      // A detail stroke sitting inside a shape that the fill axis is about to
+      // make solid. Drawn as it is, it would simply merge into the fill and
+      // vanish. Instead it narrows to nothing as the fill closes, while a
+      // reversed copy widens from nothing in its place, so that at full fill
+      // the detail is a gap cut out of the solid rather than a line lost in it.
+      final drawn = strokeSubPath(subPath, filled: filled);
+      return StrokeTemplate([
+        for (final contour in drawn.contours)
+          contour.withBehaviour(ContourFillBehaviour.fadeOut),
+        for (final contour in drawn.contours)
+          contour.reversed.withBehaviour(ContourFillBehaviour.knockOut),
+      ]);
+    }
     final elements = _toElements(subPath);
     if (elements.isEmpty) {
       // Every segment collapsed to a point. SVG still draws such a sub path as
@@ -189,6 +215,7 @@ final class Stroker {
       _orientHole(
         StrokeContourTemplate(
           points: inner.points,
+          behaviour: ContourFillBehaviour.collapse,
           collapseTarget: _centroidOf(elements),
         ),
       ),

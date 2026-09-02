@@ -3,6 +3,12 @@ include: package:leancode_lint/analysis_options_package.yaml
 plugins:
   leancode_lint: ^27.0.0
 
+analyzer:
+  exclude:
+    # Scratch harnesses used while developing; they are not published and not
+    # checked in.
+    - tool/_*.dart
+
 linter:
   rules:
     # `use_primary_constructors` and `public_member_api_docs` are mutually

@@ -36,51 +36,95 @@ final class StrokePointTemplate {
   String toString() => 'StrokePointTemplate($base + $direction * w)';
 }
 
+/// What the fill amount does to a contour.
+enum ContourFillBehaviour {
+  /// Filling leaves the contour alone. Outer boundaries work this way.
+  unaffected,
+
+  /// The contour shrinks onto a single point as the fill goes to one, which
+  /// closes the hole it was punching.
+  collapse,
+
+  /// The contour's stroke narrows to nothing as the fill goes to one.
+  ///
+  /// A stroke of zero width traces its own centre line out and back, enclosing
+  /// no area at all, so the contour stops contributing. Used for a detail
+  /// stroke that sits inside a shape being filled: on its own it would simply
+  /// merge into the fill and disappear, so it is faded out and replaced by
+  /// [knockOut].
+  fadeOut,
+
+  /// The contour's stroke widens from nothing as the fill goes to one, and
+  /// winds the opposite way to the shape around it.
+  ///
+  /// This is what cuts a detail back out of a filled shape, the way a filled
+  /// icon shows a tick as a gap in the solid rather than as a line on top of
+  /// it.
+  knockOut,
+}
+
 /// A contour of a [StrokeTemplate].
 @immutable
 final class StrokeContourTemplate {
   /// Creates a contour template.
-  const StrokeContourTemplate({required this.points, this.collapseTarget});
+  const StrokeContourTemplate({
+    required this.points,
+    this.behaviour = ContourFillBehaviour.unaffected,
+    this.collapseTarget,
+  }) : assert(
+         behaviour != ContourFillBehaviour.collapse || collapseTarget != null,
+         'A collapsing contour needs somewhere to collapse to',
+       );
 
   /// The points of the contour, in traversal order.
   final List<StrokePointTemplate> points;
 
-  /// Where this contour shrinks to as the fill amount goes to one, or `null`
-  /// for contours that are unaffected by filling.
+  /// What filling does to this contour.
+  final ContourFillBehaviour behaviour;
+
+  /// Where this contour shrinks to when [behaviour] is
+  /// [ContourFillBehaviour.collapse].
   ///
-  /// Only the inner contour of a closed, unfilled sub path collapses: pulling
-  /// it onto a single point removes the hole, turning an outlined shape into a
-  /// solid one. The target never depends on the stroke width, so the collapse
-  /// stays well defined at every weight.
+  /// The target never depends on the stroke width, so the collapse stays well
+  /// defined at every weight.
   final Vec2? collapseTarget;
 
   /// Whether filling closes this contour's hole.
-  bool get collapsesWhenFilled => collapseTarget != null;
+  bool get collapsesWhenFilled => behaviour == ContourFillBehaviour.collapse;
 
   /// Evaluates this contour at [strokeScale] and [fill].
-  Contour evaluate({required double strokeScale, required double fill}) {
-    final target = collapseTarget;
-    return Contour([
-      for (final point in points)
-        OutlinePoint(
-          target == null || fill == 0
-              ? point.at(strokeScale)
-              : point.at(strokeScale).lerp(target, fill),
-          onCurve: point.onCurve,
-        ),
-    ]);
-  }
+  Contour evaluate({required double strokeScale, required double fill}) =>
+      Contour([
+        for (final point in points)
+          OutlinePoint(switch (behaviour) {
+            ContourFillBehaviour.unaffected => point.at(strokeScale),
+            ContourFillBehaviour.collapse =>
+              point.at(strokeScale).lerp(collapseTarget!, fill),
+            ContourFillBehaviour.fadeOut => point.at(strokeScale * (1 - fill)),
+            ContourFillBehaviour.knockOut => point.at(strokeScale * fill),
+          }, onCurve: point.onCurve),
+      ]);
 
   /// Returns this contour with its traversal order reversed.
   StrokeContourTemplate get reversed => StrokeContourTemplate(
     points: points.reversed.toList(),
+    behaviour: behaviour,
     collapseTarget: collapseTarget,
+  );
+
+  /// Returns a copy with a different [behaviour].
+  StrokeContourTemplate withBehaviour(
+    ContourFillBehaviour newBehaviour, {
+    Vec2? target,
+  }) => StrokeContourTemplate(
+    points: points,
+    behaviour: newBehaviour,
+    collapseTarget: target ?? collapseTarget,
   );
 
   @override
   String toString() =>
-      'StrokeContourTemplate(${points.length} points, '
-      'collapses: $collapsesWhenFilled)';
+      'StrokeContourTemplate(${points.length} points, $behaviour)';
 }
 
 /// A glyph outline parameterised by stroke half width and fill amount.
@@ -139,6 +183,7 @@ final class StrokeTemplate {
               onCurve: point.onCurve,
             ),
         ],
+        behaviour: contour.behaviour,
         collapseTarget: switch (contour.collapseTarget) {
           final target? => transform(target) + translation,
           null => null,

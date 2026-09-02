@@ -99,16 +99,27 @@ final class IconFontGenerator {
 
   /// Generates a font containing [icons].
   ///
-  /// Icons keep the order they are given in, and are placed at consecutive code
-  /// points starting from [startCodePoint].
+  /// Icons keep the order they are given in. Unless [codePoints] says
+  /// otherwise they are placed at consecutive code points starting from
+  /// [startCodePoint]; passing an explicit list is how a rebuild keeps every
+  /// icon where an already-published application expects to find it.
   GeneratedFont generate({
     required List<SvgIcon> icons,
     required FontNames names,
+    List<int>? codePoints,
     String vendorId = 'NONE',
     List<NamedInstance>? instances,
     List<AxisValueName>? axisValueNames,
     DateTime? timestamp,
   }) {
+    if (codePoints != null && codePoints.length != icons.length) {
+      throw ArgumentError.value(
+        codePoints,
+        'codePoints',
+        'Expected one code point per icon, '
+            'got ${codePoints.length} for ${icons.length} icons',
+      );
+    }
     final builder = IconOutlineBuilder(
       metrics: metrics,
       curveTolerance: curveTolerance,
@@ -135,14 +146,15 @@ final class IconFontGenerator {
     ];
 
     final placed = <GeneratedIcon>[];
-    final codePoints = _allocateCodePoints(icons.length, startCodePoint);
+    final assigned =
+        codePoints ?? _allocateCodePoints(icons.length, startCodePoint);
     for (var index = 0; index < icons.length; index++) {
       final icon = icons[index];
       final template = builder.build(icon);
       glyphs.add(
         VariableGlyph(
           name: icon.name,
-          codePoint: codePoints[index],
+          codePoint: assigned[index],
           advanceWidth: builder.advanceWidth,
           masters: [
             for (final setting in settings)
@@ -156,7 +168,7 @@ final class IconFontGenerator {
       placed.add(
         GeneratedIcon(
           name: icon.name,
-          codePoint: codePoints[index],
+          codePoint: assigned[index],
           glyphId: glyphs.length - 1,
         ),
       );

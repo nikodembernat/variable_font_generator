@@ -84,21 +84,26 @@ Uint8List buildGvarTable({
       _buildGlyphVariationData(tuples, axisOrder, sharedIndex),
   ];
 
+  // Glyph entries are laid out relative to the start of the data array, and
+  // every one begins on a four byte boundary. That matters twice over: the
+  // short offset form stores half of each offset, so an odd one could not be
+  // expressed at all, and the array's own base has to be aligned too or the
+  // relative offsets would not land where a reader computes them.
+  final dataArray = BinaryWriter();
   final offsets = <int>[0];
-  var total = 0;
   for (final data in glyphData) {
-    total += data.length;
-    // Keep every entry on a four byte boundary: the short offset format stores
-    // halves of the real offset, so odd offsets could not be expressed.
-    total += (4 - total % 4) % 4;
-    offsets.add(total);
+    dataArray
+      ..bytes(data)
+      ..align(4);
+    offsets.add(dataArray.length);
   }
-  final longOffsets = total > 0x1FFFE;
+  final longOffsets = offsets.last > 0x1FFFE;
 
   final headerSize = 20 + (glyphData.length + 1) * (longOffsets ? 4 : 2);
   final sharedTuplesOffset = headerSize;
-  final dataArrayOffset =
-      sharedTuplesOffset + sharedPeaks.length * axisOrder.length * 2;
+  final sharedTuplesSize = sharedPeaks.length * axisOrder.length * 2;
+  final unaligned = sharedTuplesOffset + sharedTuplesSize;
+  final dataArrayOffset = unaligned + (4 - unaligned % 4) % 4;
 
   final writer = BinaryWriter()
     ..uint16(1) // majorVersion
@@ -119,11 +124,9 @@ Uint8List buildGvarTable({
   for (final peak in sharedPeaks) {
     peak.forEach(writer.f2dot14);
   }
-  for (final data in glyphData) {
-    writer
-      ..bytes(data)
-      ..align(4);
-  }
+  writer
+    ..zeros(dataArrayOffset - unaligned)
+    ..bytes(dataArray.toBytes());
   return writer.toBytes();
 }
 

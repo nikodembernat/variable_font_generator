@@ -1,5 +1,7 @@
 import 'package:meta/meta.dart';
 import 'package:variable_font_generator/src/font/font_metrics.dart';
+import 'package:variable_font_generator/src/geometry/path.dart';
+import 'package:variable_font_generator/src/geometry/polygon.dart';
 import 'package:variable_font_generator/src/geometry/stroke_template.dart';
 import 'package:variable_font_generator/src/geometry/stroker.dart';
 import 'package:variable_font_generator/src/geometry/vec2.dart';
@@ -68,6 +70,11 @@ final class IconOutlineBuilder {
     // its own user units, so convert before handing it to the stroker.
     final userTolerance = curveTolerance / scale;
 
+    // A detail stroke sitting inside a shape the fill axis will make solid
+    // gets special treatment, so work out which sub paths those are before
+    // stroking anything.
+    final knockedOut = _knockedOutSubPaths(icon);
+
     var template = StrokeTemplate.empty;
     for (final shape in icon.shapes) {
       if (!shape.stroked) {
@@ -89,7 +96,7 @@ final class IconOutlineBuilder {
         }
         continue;
       }
-      final stroked = Stroker(
+      final stroker = Stroker(
         cap: shape.cap,
         join: shape.join,
         miterLimit: shape.miterLimit,
@@ -97,11 +104,65 @@ final class IconOutlineBuilder {
         maxArcAngle: maxArcAngle,
         cubicTolerance: userTolerance,
         innerJoinLimit: innerJoinLimit,
-      ).strokePath(shape.path, filled: shape.filled);
-      template += _scaleDirections(stroked, shape.strokeWidth / 2);
+      );
+      for (final subPath in shape.path.subPaths) {
+        template += _scaleDirections(
+          stroker.strokeSubPath(
+            subPath,
+            filled: shape.filled,
+            knockedOutWhenFilled: knockedOut.contains(subPath),
+          ),
+          shape.strokeWidth / 2,
+        );
+      }
     }
 
     return template.transformed(transform: linear, translation: translation);
+  }
+
+  /// The open sub paths of [icon] that sit inside a shape the fill axis will
+  /// make solid.
+  ///
+  /// Only open sub paths qualify. A closed one has an inside of its own and
+  /// filling it is meaningful in its own right, whereas an open one is a detail
+  /// — a tick, a cross, a pair of battery terminals — that exists to be read
+  /// against the shape around it.
+  static Set<SubPath> _knockedOutSubPaths(SvgIcon icon) {
+    final containers = <List<Vec2>>[];
+    for (final shape in icon.shapes) {
+      if (!shape.stroked || shape.filled) {
+        continue;
+      }
+      for (final subPath in shape.path.subPaths) {
+        if (subPath.closed) {
+          containers.add(flattenSubPath(subPath));
+        }
+      }
+    }
+    if (containers.isEmpty) {
+      return const {};
+    }
+
+    final result = <SubPath>{};
+    for (final shape in icon.shapes) {
+      if (!shape.stroked) {
+        continue;
+      }
+      for (final subPath in shape.path.subPaths) {
+        if (subPath.closed) {
+          continue;
+        }
+        final polygon = flattenSubPath(subPath);
+        for (final container in containers) {
+          if (!identical(container, polygon) &&
+              isPolygonInside(polygon, container)) {
+            result.add(subPath);
+            break;
+          }
+        }
+      }
+    }
+    return result;
   }
 
   /// Rescales a template built with a half width of one so that a half width of
@@ -120,6 +181,7 @@ final class IconOutlineBuilder {
               onCurve: point.onCurve,
             ),
         ],
+        behaviour: contour.behaviour,
         collapseTarget: contour.collapseTarget,
       ),
   ]);
