@@ -1131,7 +1131,7 @@ void main() {
 
     test('reconstructs every master of the material icon axis set', () {
       const axes = IconAxisSet.material;
-      expect(axes.masterLocations, hasLength(14));
+      expect(axes.masterLocations, hasLength(21));
       expectMastersReconstruct(axes.masterLocations, axes.tags);
     });
 

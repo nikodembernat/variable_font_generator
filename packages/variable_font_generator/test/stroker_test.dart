@@ -415,6 +415,69 @@ void main() {
       );
     });
 
+    test('never has a knocked-out detail and its replacement at once', () {
+      // The two cancel wherever they are the same size, because one is the
+      // other wound backwards. Sharing the fill between them makes a detail
+      // vanish at half fill and come back as a hairline outline of itself
+      // instead of as the gap it should be, so the handover is staggered: the
+      // drawn copy is gone by half fill and the replacement starts there.
+      for (final subPath in [line, square]) {
+        final detail = const Stroker().strokeSubPath(
+          subPath,
+          knockedOutWhenFilled: true,
+        );
+        for (var step = 0; step <= 20; step++) {
+          final fill = step / 20;
+          final drawn = <double>[];
+          final replacing = <double>[];
+          final outline = detail.evaluate(strokeScale: 1, fill: fill);
+          for (var index = 0; index < detail.contours.length; index++) {
+            final area = outline.contours[index].signedArea.abs();
+            switch (detail.contours[index].behaviour) {
+              case ContourFillBehaviour.fadeOut:
+              case ContourFillBehaviour.shrink:
+                drawn.add(area);
+              case ContourFillBehaviour.knockOut:
+              case ContourFillBehaviour.grow:
+                replacing.add(area);
+              case ContourFillBehaviour.unaffected:
+              case ContourFillBehaviour.collapse:
+                break;
+            }
+          }
+          expect(
+            drawn.any((area) => area > 1e-9) &&
+                replacing.any((area) => area > 1e-9),
+            isFalse,
+            reason:
+                'at fill $fill both the detail and its replacement enclose '
+                'area: drawn $drawn, replacing $replacing',
+          );
+        }
+      }
+    });
+
+    test('leaves a knocked-out detail exactly as it was at either end', () {
+      // The staggering must not move the ends: no fill is the drawn icon and
+      // full fill is the gap, whatever happens between them.
+      for (final subPath in [line, square]) {
+        final detail = const Stroker().strokeSubPath(
+          subPath,
+          knockedOutWhenFilled: true,
+        );
+        final drawn = detail.evaluate(strokeScale: 1);
+        final cut = detail.evaluate(strokeScale: 1, fill: 1);
+        expect(
+          drawn.contours.map((contour) => contour.signedArea.abs() > 1e-9),
+          isNot(everyElement(isFalse)),
+        );
+        expect(
+          cut.contours.map((contour) => contour.signedArea.abs() > 1e-9),
+          isNot(everyElement(isFalse)),
+        );
+      }
+    });
+
     test('shrinks a knocked-out closed detail away and grows a filled copy', () {
       // A closed shape still encloses area once its stroke has no width left,
       // so narrowing it is not enough to make it disappear; it is pulled onto a
@@ -425,8 +488,8 @@ void main() {
         knockedOutWhenFilled: true,
       );
       expect(detail.contours.map((contour) => contour.behaviour), const [
-        ContourFillBehaviour.collapse,
-        ContourFillBehaviour.collapse,
+        ContourFillBehaviour.shrink,
+        ContourFillBehaviour.shrink,
         ContourFillBehaviour.grow,
       ]);
 

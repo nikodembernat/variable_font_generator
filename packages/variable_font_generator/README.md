@@ -136,7 +136,7 @@ silently changes what an already-published build draws.
 ### Options
 
 ```
---output, -o        Where everything is written.            (build/icons)
+--output, -o        Where everything is written.       (the current directory)
 --family            The font family name.       (--class-name, or CustomIcons)
 --class-name        The class to hold the icons. Naming one asks for the
                     bindings; without it only the font is written.
@@ -196,6 +196,14 @@ to nothing as the fill closes while a reversed copy widens in its place, so a
 filled icon shows its detail as a gap cut out of the solid rather than losing it
 in the fill.
 
+The detail and the gap that replaces it never appear at the same time: the drawn
+copy is withdrawn by half fill and the gap opens from half fill on. They cannot
+share the axis, because a stroke and its reversed copy are the same width
+wherever they overlap and cancel exactly — a detail splitting the fill with its
+own replacement disappears in the middle and comes back as a hairline outline of
+itself. The price is that at exactly half fill a detail has no width, and the
+handover is what the extra master at half fill is for.
+
 An open stroke that is not inside anything has no interior to fill, so `FILL`
 leaves it alone. That is a real limitation rather than an oversight: an arrow
 has no filled form, and inventing one would be guessing.
@@ -241,9 +249,9 @@ in the width, but not in their products — filling moves a hole's boundary onto
 point, and how far each point travels depends on how thick the stroke was and
 how far the shape was stretched. Variation interpolation is linear, so the
 design space carries a master wherever two effects meet: the default, each axis
-alone at both ends, and each of the others combined with a full fill. Fourteen
-in all, or eighteen with `wdth`, which makes interpolation exact everywhere
-rather than approximate.
+alone at both ends, and each of the others combined with a fill, at half and at
+full. Twenty-one in all, or twenty-seven with `wdth`, which makes interpolation
+exact everywhere rather than approximate.
 
 Stroke width and width need no master together, which is the whole reason for
 defining width the way it is: moving the centre line and leaving the stroke
@@ -289,8 +297,10 @@ The package does not check itself against itself.
 - A `transform` with a non-uniform scale scales the stroke by the geometric mean
   of the two factors, rather than making it elliptical as SVG would.
 - Composite glyphs are never written, so identical icons do not share outlines.
-- `gvar` dominates the file size — about 4 KB per icon with all four of the
-  `Icon` axes. Use `--axes` to drop the ones you do not need; a weight-only font
-  is roughly a fifth of the size, and adding `wdth` costs about a third more.
+- `gvar` dominates the file size — about 6 KB per icon with all four of the
+  `Icon` axes, of which a fifth is the half-fill master that keeps a detail from
+  cancelling against the gap replacing it. Use `--axes` to drop the ones you do
+  not need; a weight-only font is roughly a seventh of the size, and adding
+  `wdth` costs about a third more.
 - There is no `slnt` or `ital` axis. Slanting an icon shears it, which needs a
   master against every other axis and is rarely what anyone wants from a symbol.

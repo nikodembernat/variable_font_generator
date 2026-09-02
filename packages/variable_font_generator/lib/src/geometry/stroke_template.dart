@@ -45,32 +45,50 @@ enum ContourFillBehaviour {
   /// closes the hole it was punching.
   collapse,
 
-  /// The contour's stroke narrows to nothing as the fill goes to one.
+  /// The contour's stroke narrows to nothing by half fill.
   ///
   /// A stroke of zero width traces its own centre line out and back, enclosing
   /// no area at all, so the contour stops contributing. Used for a detail
   /// stroke that sits inside a shape being filled: on its own it would simply
-  /// merge into the fill and disappear, so it is faded out and replaced by
-  /// [knockOut].
+  /// merge into the fill and disappear, so it is withdrawn as the ink arrives
+  /// and [knockOut] takes over.
   fadeOut,
 
-  /// The contour's stroke widens from nothing as the fill goes to one, and
-  /// winds the opposite way to the shape around it.
+  /// The contour's stroke widens from nothing from half fill onwards, winding
+  /// the opposite way to the shape around it.
   ///
   /// This is what cuts a detail back out of a filled shape, the way a filled
   /// icon shows a tick as a gap in the solid rather than as a line on top of
   /// it.
   knockOut,
 
-  /// The contour grows from a single point as the fill goes to one.
+  /// The contour shrinks onto a single point by half fill.
   ///
-  /// The counterpart of [collapse], and what cuts a closed shape back out of
-  /// the larger one around it: the play triangle inside a circle would
-  /// otherwise fill solid and disappear into it. A closed contour cannot be
-  /// made to vanish by narrowing its stroke — with no width left it is still a
-  /// loop enclosing area — so it is shrunk onto a point instead.
+  /// What [fadeOut] is for an open detail, this is for a closed one: a closed
+  /// contour cannot be made to vanish by narrowing its stroke, because with no
+  /// width left it is still a loop enclosing area, so it is pulled onto a
+  /// point instead.
+  shrink,
+
+  /// The contour grows from a single point from half fill onwards.
+  ///
+  /// The counterpart of [shrink], and what cuts a closed shape back out of the
+  /// larger one around it: the play triangle inside a circle would otherwise
+  /// fill solid and disappear into it.
   grow,
 }
+
+/// How far through its half of the fill a contour that gives way to another is.
+///
+/// [ContourFillBehaviour.fadeOut] and [ContourFillBehaviour.shrink] are done by
+/// half fill; [ContourFillBehaviour.knockOut] and [ContourFillBehaviour.grow]
+/// start there. Neither pair may be anywhere at the same time. A stroke and its
+/// reversed copy are the same width wherever they overlap, so they cancel
+/// exactly: a detail sharing the fill with its own replacement disappears at
+/// half fill and comes back as a hairline outline of itself rather than as the
+/// gap it should be.
+double _handover(double fill, {required bool second}) =>
+    (second ? fill * 2 - 1 : 1 - fill * 2).clamp(0, 1);
 
 /// A contour of a [StrokeTemplate].
 @immutable
@@ -82,6 +100,7 @@ final class StrokeContourTemplate {
     this.collapseTarget,
   }) : assert(
          (behaviour != ContourFillBehaviour.collapse &&
+                 behaviour != ContourFillBehaviour.shrink &&
                  behaviour != ContourFillBehaviour.grow) ||
              collapseTarget != null,
          'A contour that collapses or grows needs a point to do it around',
@@ -132,11 +151,21 @@ final class StrokeContourTemplate {
             point,
             strokeScale,
           ).lerp(target!, fill),
-          ContourFillBehaviour.fadeOut => at(point, strokeScale * (1 - fill)),
-          ContourFillBehaviour.knockOut => at(point, strokeScale * fill),
+          ContourFillBehaviour.fadeOut => at(
+            point,
+            strokeScale * _handover(fill, second: false),
+          ),
+          ContourFillBehaviour.knockOut => at(
+            point,
+            strokeScale * _handover(fill, second: true),
+          ),
+          ContourFillBehaviour.shrink => at(
+            point,
+            strokeScale,
+          ).lerp(target!, 1 - _handover(fill, second: false)),
           ContourFillBehaviour.grow => target!.lerp(
             at(point, strokeScale),
-            fill,
+            _handover(fill, second: true),
           ),
         }, onCurve: point.onCurve),
     ]);

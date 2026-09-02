@@ -150,7 +150,7 @@ final class Stroker {
       final outer = drawn.contours.first;
       return StrokeTemplate([
         for (final contour in drawn.contours)
-          contour.withBehaviour(ContourFillBehaviour.collapse, target: centre),
+          contour.withBehaviour(ContourFillBehaviour.shrink, target: centre),
         outer.reversed.withBehaviour(ContourFillBehaviour.grow, target: centre),
       ]);
     }

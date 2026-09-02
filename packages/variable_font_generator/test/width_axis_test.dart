@@ -95,16 +95,17 @@ void main() {
       expect(horizontalRun(narrow), lessThan(horizontalRun(normal)));
     });
 
-    test('adds four masters and no more', () {
-      expect(IconAxisSet.material.masterLocations, hasLength(14));
-      expect(axisSet.masterLocations, hasLength(18));
+    test('adds six masters and no more', () {
+      expect(IconAxisSet.material.masterLocations, hasLength(21));
+      expect(axisSet.masterLocations, hasLength(27));
       // Width pairs with fill, because filling moves a boundary onto a point
-      // and how far it travels depends on the stretch. It does not pair with
-      // the stroke axes, which is what keeps the count down.
+      // and how far it travels depends on the stretch. It pairs with both
+      // positions the fill axis carries a master at, and with none of the
+      // stroke axes, which is what keeps the count down.
       final pairs = axisSet.masterLocations
           .where((location) => location.containsKey('wdth'))
           .toList();
-      expect(pairs, hasLength(4));
+      expect(pairs, hasLength(6));
       for (final location in pairs) {
         expect(
           location.keys.toSet(),

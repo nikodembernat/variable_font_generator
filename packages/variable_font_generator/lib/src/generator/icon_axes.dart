@@ -257,13 +257,18 @@ final class IconAxisSet {
       const <String, double>{},
       for (final axis in scaleAxes)
         for (final extreme in extremesOf(axis)) {axis.axis.tag: extreme},
+      // Half fill as well as full, because a detail hands over to the copy
+      // that replaces it there: the outline is withdrawn by half fill and the
+      // gap opens from half fill on, which is a knee rather than a straight
+      // line and needs a master sitting on it.
       for (final fillAxis in fillAxes)
-        for (final fillExtreme in extremesOf(fillAxis)) ...[
-          {fillAxis.axis.tag: fillExtreme},
-          for (final axis in scaleAxes)
-            for (final extreme in extremesOf(axis))
-              {fillAxis.axis.tag: fillExtreme, axis.axis.tag: extreme},
-        ],
+        for (final fillExtreme in extremesOf(fillAxis))
+          for (final fillPosition in [fillExtreme / 2, fillExtreme]) ...[
+            {fillAxis.axis.tag: fillPosition},
+            for (final axis in scaleAxes)
+              for (final extreme in extremesOf(axis))
+                {fillAxis.axis.tag: fillPosition, axis.axis.tag: extreme},
+          ],
     ];
   }
 
