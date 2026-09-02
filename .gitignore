@@ -13,3 +13,6 @@ packages/*/tool/_*.dart
 .idea/
 .vscode/
 *.iml
+
+# Python bytecode from tool/
+__pycache__/
