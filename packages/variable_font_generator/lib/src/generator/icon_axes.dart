@@ -4,54 +4,80 @@ import 'package:variable_font_generator/src/font/tables/stat_table.dart';
 import 'package:variable_font_generator/src/variations/font_axis.dart';
 import 'package:variable_font_generator/src/variations/variation_model.dart';
 
+/// What an axis of a generated icon font changes about the artwork.
+enum IconAxisEffect {
+  /// How thick the strokes are drawn.
+  strokeWidth,
+
+  /// Whether the shapes the strokes outline are filled in.
+  fill,
+
+  /// How wide the shapes are, horizontally, with the strokes keeping their
+  /// thickness.
+  width,
+}
+
 /// An axis of a generated icon font, together with what it does to the artwork.
 ///
-/// Stroke-based icons have two things worth varying: how thick the strokes are
-/// and whether the shapes they outline are filled in. Every axis drives one of
-/// those two, which is what keeps the design space small enough to describe
-/// exactly with a handful of masters.
+/// Stroke-based icons have three things worth varying: how thick the strokes
+/// are, whether the shapes they outline are filled in, and how wide those
+/// shapes are. Every axis drives exactly one of them, which is what keeps the
+/// design space small enough to describe exactly with a handful of masters.
 @immutable
 final class IconAxis {
   /// Creates an axis that changes the stroke width.
   const IconAxis({
     required this.axis,
-    required this.strokeScaleAtMinimum,
-    required this.strokeScaleAtMaximum,
-  }) : controlsFill = false;
+    required this.scaleAtMinimum,
+    required this.scaleAtMaximum,
+  }) : effect = IconAxisEffect.strokeWidth;
 
   /// Creates an axis that fills the shapes in rather than changing their
   /// stroke width.
   const IconAxis.fill(this.axis)
-    : strokeScaleAtMinimum = 1,
-      strokeScaleAtMaximum = 1,
-      controlsFill = true;
+    : scaleAtMinimum = 1,
+      scaleAtMaximum = 1,
+      effect = IconAxisEffect.fill;
+
+  /// Creates an axis that narrows or widens the shapes horizontally.
+  ///
+  /// The strokes keep their thickness, the way a condensed typeface keeps its
+  /// stem weight while its letters grow narrower.
+  const IconAxis.width({
+    required this.axis,
+    required this.scaleAtMinimum,
+    required this.scaleAtMaximum,
+  }) : effect = IconAxisEffect.width;
 
   /// The axis as it appears in `fvar`.
   final FontAxis axis;
 
-  /// How thick the strokes are at the axis's minimum, as a multiple of the
-  /// artwork's own stroke width.
-  final double strokeScaleAtMinimum;
+  /// What this axis changes.
+  final IconAxisEffect effect;
 
-  /// How thick the strokes are at the axis's maximum.
-  final double strokeScaleAtMaximum;
+  /// The scale this axis applies at its minimum, as a multiple of the
+  /// artwork's own.
+  final double scaleAtMinimum;
 
-  /// Whether this axis closes the shapes' holes instead of changing the stroke
-  /// width.
-  final bool controlsFill;
+  /// The scale this axis applies at its maximum.
+  final double scaleAtMaximum;
 
-  /// This axis's contribution at a normalised coordinate.
-  double strokeScaleContribution(double normalized) {
+  /// Whether this axis closes the shapes' holes.
+  bool get controlsFill => effect == IconAxisEffect.fill;
+
+  /// This axis's contribution at a normalised coordinate, as a departure from
+  /// one.
+  double scaleContribution(double normalized) {
     if (controlsFill || normalized == 0) {
       return 0;
     }
     return normalized < 0
-        ? -normalized * (strokeScaleAtMinimum - 1)
-        : normalized * (strokeScaleAtMaximum - 1);
+        ? -normalized * (scaleAtMinimum - 1)
+        : normalized * (scaleAtMaximum - 1);
   }
 
   @override
-  String toString() => 'IconAxis(${axis.tag})';
+  String toString() => 'IconAxis(${axis.tag}, $effect)';
 }
 
 /// The set of axes a generated icon font offers.
@@ -89,8 +115,8 @@ final class IconAxisSet {
       defaultValue: 400,
       maximum: 700,
     ),
-    strokeScaleAtMinimum: 0.5,
-    strokeScaleAtMaximum: 1.5,
+    scaleAtMinimum: 0.5,
+    scaleAtMaximum: 1.5,
   );
 
   /// The `GRAD` axis, a finer adjustment to stroke thickness.
@@ -106,8 +132,8 @@ final class IconAxisSet {
       defaultValue: 0,
       maximum: 200,
     ),
-    strokeScaleAtMinimum: 0.92,
-    strokeScaleAtMaximum: 1.3,
+    scaleAtMinimum: 0.92,
+    scaleAtMaximum: 1.3,
   );
 
   /// The `opsz` axis, which compensates for the size an icon is drawn at.
@@ -123,8 +149,31 @@ final class IconAxisSet {
       defaultValue: 24,
       maximum: 48,
     ),
-    strokeScaleAtMinimum: 1.06,
-    strokeScaleAtMaximum: 0.78,
+    scaleAtMinimum: 1.06,
+    scaleAtMaximum: 0.78,
+  );
+
+  /// The `wdth` axis, which narrows or widens the shapes.
+  ///
+  /// Off by default. Flutter's `Icon` widget cannot drive it — it only knows
+  /// about fill, weight, grade and optical size — so reaching it means styling
+  /// the code point yourself with
+  /// `TextStyle(fontVariations: [FontVariation.width(87.5)])`. It is offered
+  /// because `FontVariation.width` exists and a font used inline with text may
+  /// want to match a condensed face beside it.
+  ///
+  /// The range follows the usual convention of a percentage of normal, with
+  /// the same span Roboto Flex uses.
+  static const widthAxis = IconAxis.width(
+    axis: FontAxis(
+      tag: 'wdth',
+      name: 'Width',
+      minimum: 75,
+      defaultValue: 100,
+      maximum: 125,
+    ),
+    scaleAtMinimum: 0.75,
+    scaleAtMaximum: 1.25,
   );
 
   /// The four axes Flutter's `Icon` widget knows how to drive.
@@ -133,6 +182,16 @@ final class IconAxisSet {
     weightAxis,
     gradeAxis,
     opticalSizeAxis,
+  ]);
+
+  /// Every axis this package can generate, including the `wdth` axis that
+  /// `Icon` cannot drive.
+  static const everything = IconAxisSet([
+    fillAxis,
+    weightAxis,
+    gradeAxis,
+    opticalSizeAxis,
+    widthAxis,
   ]);
 
   /// The axes, in the order `fvar` and `gvar` list them.
@@ -144,19 +203,30 @@ final class IconAxisSet {
   /// The axis tags, in font order.
   List<String> get tags => [for (final axis in axes) axis.axis.tag];
 
-  /// The stroke scale and fill amount at a normalised design-space position.
-  ({double strokeScale, double fill}) resolve(AxisLocation location) {
+  /// The stroke scale, fill amount and width scale at a normalised
+  /// design-space position.
+  ({double strokeScale, double fill, double widthScale}) resolve(
+    AxisLocation location,
+  ) {
     var strokeScale = 1.0;
+    var widthScale = 1.0;
     var fill = 0.0;
     for (final axis in axes) {
       final normalized = location[axis.axis.tag] ?? 0;
-      if (axis.controlsFill) {
-        fill += normalized.clamp(0, 1);
-      } else {
-        strokeScale += axis.strokeScaleContribution(normalized);
+      switch (axis.effect) {
+        case IconAxisEffect.fill:
+          fill += normalized.clamp(0, 1);
+        case IconAxisEffect.strokeWidth:
+          strokeScale += axis.scaleContribution(normalized);
+        case IconAxisEffect.width:
+          widthScale += axis.scaleContribution(normalized);
       }
     }
-    return (strokeScale: strokeScale, fill: fill.clamp(0, 1));
+    return (
+      strokeScale: strokeScale,
+      fill: fill.clamp(0, 1),
+      widthScale: widthScale,
+    );
   }
 
   /// The master positions needed to reproduce [resolve] exactly everywhere.

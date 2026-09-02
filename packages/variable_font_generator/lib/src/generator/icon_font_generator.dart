@@ -161,6 +161,8 @@ final class IconFontGenerator {
               template.evaluate(
                 strokeScale: setting.strokeScale,
                 fill: setting.fill,
+                widthScale: setting.widthScale,
+                horizontalCentre: builder.advanceWidth / 2,
               ),
           ],
         ),

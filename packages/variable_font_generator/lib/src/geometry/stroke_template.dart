@@ -103,22 +103,44 @@ final class StrokeContourTemplate {
   /// Whether filling closes this contour's hole.
   bool get collapsesWhenFilled => behaviour == ContourFillBehaviour.collapse;
 
-  /// Evaluates this contour at [strokeScale] and [fill].
-  Contour evaluate({required double strokeScale, required double fill}) =>
-      Contour([
-        for (final point in points)
-          OutlinePoint(switch (behaviour) {
-            ContourFillBehaviour.unaffected => point.at(strokeScale),
-            ContourFillBehaviour.collapse =>
-              point.at(strokeScale).lerp(collapseTarget!, fill),
-            ContourFillBehaviour.fadeOut => point.at(strokeScale * (1 - fill)),
-            ContourFillBehaviour.knockOut => point.at(strokeScale * fill),
-            ContourFillBehaviour.grow => collapseTarget!.lerp(
-              point.at(strokeScale),
-              fill,
-            ),
-          }, onCurve: point.onCurve),
-      ]);
+  /// Evaluates this contour at [strokeScale], [fill] and [widthScale].
+  ///
+  /// [widthScale] narrows or widens the shape horizontally about
+  /// [horizontalCentre]. It moves the centre line only, leaving the stroke's
+  /// own thickness alone, the way a condensed typeface keeps its stem weight.
+  Contour evaluate({
+    required double strokeScale,
+    required double fill,
+    double widthScale = 1,
+    double horizontalCentre = 0,
+  }) {
+    Vec2 widen(Vec2 point) => widthScale == 1
+        ? point
+        : Vec2(
+            horizontalCentre + (point.x - horizontalCentre) * widthScale,
+            point.y,
+          );
+    Vec2 at(StrokePointTemplate point, double scale) =>
+        widen(point.base) + point.direction * scale;
+
+    final target = collapseTarget == null ? null : widen(collapseTarget!);
+    return Contour([
+      for (final point in points)
+        OutlinePoint(switch (behaviour) {
+          ContourFillBehaviour.unaffected => at(point, strokeScale),
+          ContourFillBehaviour.collapse => at(
+            point,
+            strokeScale,
+          ).lerp(target!, fill),
+          ContourFillBehaviour.fadeOut => at(point, strokeScale * (1 - fill)),
+          ContourFillBehaviour.knockOut => at(point, strokeScale * fill),
+          ContourFillBehaviour.grow => target!.lerp(
+            at(point, strokeScale),
+            fill,
+          ),
+        }, onCurve: point.onCurve),
+    ]);
+  }
 
   /// Returns this contour with its traversal order reversed.
   StrokeContourTemplate get reversed => StrokeContourTemplate(
@@ -165,7 +187,7 @@ final class StrokeTemplate {
   /// Whether this template draws nothing.
   bool get isEmpty => contours.isEmpty;
 
-  /// Builds the outline for the given [strokeScale] and [fill].
+  /// Builds the outline for the given [strokeScale], [fill] and [widthScale].
   ///
   /// What a stroke scale of one means depends on who built the template: a
   /// [StrokeTemplate] straight out of the stroker measures it in source units
@@ -173,9 +195,22 @@ final class StrokeTemplate {
   /// one reproduces the artwork's own stroke widths.
   ///
   /// [fill] runs from zero (holes fully open) to one (holes fully closed).
-  Outline evaluate({required double strokeScale, double fill = 0}) => Outline([
+  ///
+  /// [widthScale] narrows or widens the shape horizontally about
+  /// [horizontalCentre], leaving the stroke thickness alone.
+  Outline evaluate({
+    required double strokeScale,
+    double fill = 0,
+    double widthScale = 1,
+    double horizontalCentre = 0,
+  }) => Outline([
     for (final contour in contours)
-      contour.evaluate(strokeScale: strokeScale, fill: fill),
+      contour.evaluate(
+        strokeScale: strokeScale,
+        fill: fill,
+        widthScale: widthScale,
+        horizontalCentre: horizontalCentre,
+      ),
   ]);
 
   /// Returns a copy with [transform] applied to every base point, collapse

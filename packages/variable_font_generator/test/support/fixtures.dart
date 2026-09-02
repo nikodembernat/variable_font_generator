@@ -37,9 +37,9 @@ GeneratedFont buildFixtureFont({IconAxisSet axisSet = IconAxisSet.material}) =>
       timestamp: fixtureTimestamp,
     );
 
-/// The stroke scale and fill amount at a design-space position given in user
-/// coordinates.
-({double strokeScale, double fill}) resolveFixtureLocation(
+/// The stroke scale, fill amount and width scale at a design-space position
+/// given in user coordinates.
+({double strokeScale, double fill, double widthScale}) resolveFixtureLocation(
   Map<String, double> axisValues, {
   IconAxisSet axisSet = IconAxisSet.material,
 }) => axisSet.resolve({

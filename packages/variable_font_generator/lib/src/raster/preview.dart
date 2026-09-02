@@ -59,6 +59,8 @@ Uint8List renderPreviewSheet({
         template.evaluate(
           strokeScale: resolved.strokeScale,
           fill: resolved.fill,
+          widthScale: resolved.widthScale,
+          horizontalCentre: metrics.unitsPerEm / 2,
         ),
         width: cellSize,
         height: cellSize,

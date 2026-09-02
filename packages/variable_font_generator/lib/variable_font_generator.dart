@@ -68,7 +68,8 @@ export 'src/font/ttf_reader.dart'
     show FontParseException, ParsedFont, ParsedTuple, TableRecord;
 export 'src/font/ttf_writer.dart' show writeVariableFont;
 export 'src/font/variable_font.dart' show VariableFont;
-export 'src/generator/icon_axes.dart' show IconAxis, IconAxisSet;
+export 'src/generator/icon_axes.dart'
+    show IconAxis, IconAxisEffect, IconAxisSet;
 export 'src/generator/icon_font_generator.dart'
     show GeneratedFont, GeneratedIcon, IconFontGenerator, privateUseAreaStart;
 export 'src/generator/icon_outline_builder.dart' show IconOutlineBuilder;

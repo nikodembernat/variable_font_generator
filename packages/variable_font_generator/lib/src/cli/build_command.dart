@@ -62,7 +62,16 @@ final class BuildCommand extends Command<int> {
       ..addMultiOption(
         'axes',
         help: 'Which variation axes the font offers.',
-        allowed: ['FILL', 'wght', 'GRAD', 'opsz'],
+        allowed: ['FILL', 'wght', 'GRAD', 'opsz', 'wdth'],
+        allowedHelp: {
+          'FILL': 'Closes the holes in outlined shapes. Icon.fill.',
+          'wght': 'Thickens the strokes. Icon.weight.',
+          'GRAD': 'Thickens them more finely. Icon.grade.',
+          'opsz': 'Thins them as the icon grows. Icon.opticalSize.',
+          'wdth':
+              'Narrows or widens the shapes. Off by default: the Icon widget '
+              'cannot drive it, so it needs a TextStyle fontVariations entry.',
+        },
         defaultsTo: ['FILL', 'wght', 'GRAD', 'opsz'],
       )
       ..addOption(
@@ -188,7 +197,7 @@ final class BuildCommand extends Command<int> {
       libraryFileName: libraryFileName,
       packageName: packageName,
       axisSet: IconAxisSet([
-        for (final axis in IconAxisSet.material.axes)
+        for (final axis in IconAxisSet.everything.axes)
           if (requested.contains(axis.axis.tag)) axis,
       ]),
       metrics: FontMetrics(

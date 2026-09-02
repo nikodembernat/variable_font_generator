@@ -17,6 +17,22 @@ Icon(MyIcons.house, size: 32, fill: 1, weight: 700)
 | `wght` | `weight` | 100 – 700 | thickens the strokes |
 | `GRAD` | `grade` | -50 – 200 | thickens them more finely, for matching surrounding text |
 | `opsz` | `opticalSize` | 20 – 48 | thins them as the icon grows, so it reads the same at any size |
+| `wdth` | — | 75 – 125 | narrows or widens the shapes, keeping the strokes' thickness |
+
+Those four are every axis `Icon` can drive. `wdth` is off by default because
+`Icon` has no parameter for it; turn it on with `--axes FILL,wght,GRAD,opsz,wdth`
+and reach it through `TextStyle`:
+
+```dart
+Text(
+  String.fromCharCode(MyIcons.house.codePoint),
+  style: const TextStyle(
+    fontFamily: 'MyIcons',
+    fontSize: 32,
+    fontVariations: [FontVariation.width(87.5)],
+  ),
+)
+```
 
 ## Install
 
@@ -73,7 +89,8 @@ silently changes what an already-published build draws.
 --package           The Flutter package the font ships in.
 --library           File name of the generated library.
 --naming            camel | snake                           (camel)
---axes              Which of FILL, wght, GRAD, opsz to offer.  (all four)
+--axes              Which of FILL, wght, GRAD, opsz, wdth to offer.
+                                                            (all but wdth)
 --index             Also write a library listing every icon by name.
 --codepoints        A JSON file remembering the code points.
 --start-codepoint   Where to start assigning them.          (0xE000)
@@ -158,15 +175,22 @@ applying its variations, and `Rasterizer` for drawing any of it into a bitmap.
 ## How the axes are realised
 
 `wght`, `GRAD` and `opsz` all scale the stroke width, over the ranges Material
-Symbols uses so that an application can pass the same numbers to either.
+Symbols uses so that an application can pass the same numbers to either. `wdth`
+scales the artwork horizontally and leaves the stroke's own thickness alone, the
+way a condensed typeface keeps its stem weight.
 
-An outline is affine in the stroke width, and affine in the fill amount, but not
-in their product — filling moves a hole's boundary onto a point, and how far
-each point travels depends on how thick the stroke was to begin with. Variation
-interpolation is linear, so the design space carries a master at every corner
-where the two effects meet: the default, each axis alone at both ends, and each
-stroke axis combined with a full fill. Fourteen in all, which makes
-interpolation exact everywhere rather than approximate.
+An outline is affine in the stroke width, affine in the fill amount and affine
+in the width, but not in their products — filling moves a hole's boundary onto a
+point, and how far each point travels depends on how thick the stroke was and
+how far the shape was stretched. Variation interpolation is linear, so the
+design space carries a master wherever two effects meet: the default, each axis
+alone at both ends, and each of the others combined with a full fill. Fourteen
+in all, or eighteen with `wdth`, which makes interpolation exact everywhere
+rather than approximate.
+
+Stroke width and width need no master together, which is the whole reason for
+defining width the way it is: moving the centre line and leaving the stroke
+alone makes the two genuinely independent, and saves twelve masters.
 
 No `avar` table is written, because each axis is arranged to be linear on either
 side of its default, which the normalised axis mapping already provides. No
@@ -203,6 +227,8 @@ The package does not check itself against itself.
 - A `transform` with a non-uniform scale scales the stroke by the geometric mean
   of the two factors, rather than making it elliptical as SVG would.
 - Composite glyphs are never written, so identical icons do not share outlines.
-- `gvar` dominates the file size — about 4 KB per icon with all four axes. Use
-  `--axes` to drop the ones you do not need; a weight-only font is roughly a
-  fifth of the size.
+- `gvar` dominates the file size — about 4 KB per icon with all four of the
+  `Icon` axes. Use `--axes` to drop the ones you do not need; a weight-only font
+  is roughly a fifth of the size, and adding `wdth` costs about a third more.
+- There is no `slnt` or `ital` axis. Slanting an icon shears it, which needs a
+  master against every other axis and is rarely what anyone wants from a symbol.
