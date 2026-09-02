@@ -27,6 +27,7 @@ final class BuildOptions {
     this.writePubspec = false,
     this.codePointMapPath,
     this.previewPath,
+    this.emitIndex = false,
     this.mirroredInRightToLeft = const {},
     this.timestamp,
   });
@@ -87,6 +88,9 @@ final class BuildOptions {
   /// Where a preview image of the generated icons is written, if anywhere.
   final String? previewPath;
 
+  /// Whether a second library listing every icon by name is written.
+  final bool emitIndex;
+
   /// Icon names that should be flipped in right-to-left layouts.
   final Set<String> mirroredInRightToLeft;
 
@@ -103,6 +107,14 @@ final class BuildOptions {
   /// Where the Dart library goes, relative to [outputDirectory].
   String get libraryRelativePath =>
       packageName == null ? libraryFileName : 'lib/$libraryFileName';
+
+  /// The file name of the generated index library.
+  String get indexFileName =>
+      '${libraryFileName.replaceFirst(RegExp(r'\.dart$'), '')}_index.dart';
+
+  /// Where the index library goes, relative to [outputDirectory].
+  String get indexRelativePath =>
+      packageName == null ? indexFileName : 'lib/$indexFileName';
 
   @override
   String toString() => 'BuildOptions($inputDirectory -> $outputDirectory)';

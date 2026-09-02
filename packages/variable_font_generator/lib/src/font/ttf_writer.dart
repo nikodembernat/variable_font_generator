@@ -75,6 +75,9 @@ Uint8List writeVariableFont(VariableFont font) {
   final glyf = buildGlyfAndLoca(defaultOutlines);
   final gvar = buildGvarTable(
     glyphTuples: [for (final glyph in glyphs) _tuplesFor(glyph, font)],
+    glyphContourEnds: [
+      for (final outline in defaultOutlines) _contourEndsOf(outline),
+    ],
     axisOrder: font.axisTags,
   );
 
@@ -223,6 +226,18 @@ List<GlyphVariationTuple> _tuplesFor(VariableGlyph glyph, VariableFont font) {
     ));
   }
   return tuples;
+}
+
+/// The index of the last point of each contour, which is what tells `gvar`
+/// where one contour ends and the next begins.
+List<int> _contourEndsOf(Outline outline) {
+  final ends = <int>[];
+  var total = 0;
+  for (final contour in outline.contours) {
+    total += contour.points.length;
+    ends.add(total - 1);
+  }
+  return ends;
 }
 
 /// A glyph's points followed by its four phantom points.

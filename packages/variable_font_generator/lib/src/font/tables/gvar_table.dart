@@ -55,8 +55,16 @@ const phantomPointCount = 4;
 /// coordinates are written in and must match the `fvar` table.
 Uint8List buildGvarTable({
   required List<List<GlyphVariationTuple>> glyphTuples,
+  required List<List<int>> glyphContourEnds,
   required List<String> axisOrder,
 }) {
+  if (glyphContourEnds.length != glyphTuples.length) {
+    throw ArgumentError.value(
+      glyphContourEnds,
+      'glyphContourEnds',
+      'Expected one contour list per glyph',
+    );
+  }
   // Every glyph varies over the same handful of regions, so the peaks are
   // collected once into the shared tuple array and referenced by index. That
   // saves two bytes per axis per tuple per glyph, which over a full icon set is
@@ -80,8 +88,13 @@ Uint8List buildGvarTable({
   }
 
   final glyphData = [
-    for (final tuples in glyphTuples)
-      _buildGlyphVariationData(tuples, axisOrder, sharedIndex),
+    for (var index = 0; index < glyphTuples.length; index++)
+      _buildGlyphVariationData(
+        glyphTuples[index],
+        glyphContourEnds[index],
+        axisOrder,
+        sharedIndex,
+      ),
   ];
 
   // Glyph entries are laid out relative to the start of the data array, and
@@ -133,6 +146,7 @@ Uint8List buildGvarTable({
 /// Serialises the tuples of one glyph.
 Uint8List _buildGlyphVariationData(
   List<GlyphVariationTuple> tuples,
+  List<int> contourEnds,
   List<String> axisOrder,
   Map<String, int> sharedIndex,
 ) {
@@ -143,7 +157,9 @@ Uint8List _buildGlyphVariationData(
   // A tuple only has to carry the points it actually moves. Working out that
   // set first is what keeps the fill axis cheap: it only ever moves the inner
   // contour of a shape, so its tuples list a fraction of the glyph's points.
-  final pointSets = [for (final tuple in tuples) _movedPoints(tuple.deltas)];
+  final pointSets = [
+    for (final tuple in tuples) _movedPoints(tuple.deltas, contourEnds),
+  ];
   final live = [
     for (var index = 0; index < tuples.length; index++)
       if (pointSets[index].isNotEmpty) index,
@@ -219,11 +235,41 @@ Uint8List _buildGlyphVariationData(
   return writer.toBytes();
 }
 
-/// The indices of the points a tuple actually moves.
-List<int> _movedPoints(List<PointDelta> deltas) => [
-  for (var index = 0; index < deltas.length; index++)
-    if (deltas[index].x != 0 || deltas[index].y != 0) index,
-];
+/// The indices of the points a tuple has to list.
+///
+/// A tuple only needs to name the points it moves, but a point it leaves out is
+/// not left where it was: the renderer infers a delta for it by interpolating
+/// between the moved points on either side of it in the same contour. That
+/// inference only comes out as zero when the whole contour is left out, so a
+/// contour with any movement at all is listed in full.
+///
+/// The four phantom points form a group of their own, outside every contour,
+/// and are treated the same way.
+List<int> _movedPoints(List<PointDelta> deltas, List<int> contourEnds) {
+  final groups = [
+    ...contourEnds,
+    if (contourEnds.isEmpty || contourEnds.last < deltas.length - 1)
+      deltas.length - 1,
+  ];
+  final result = <int>[];
+  var start = 0;
+  for (final end in groups) {
+    var moves = false;
+    for (var index = start; index <= end && index < deltas.length; index++) {
+      if (deltas[index].x != 0 || deltas[index].y != 0) {
+        moves = true;
+        break;
+      }
+    }
+    if (moves) {
+      for (var index = start; index <= end && index < deltas.length; index++) {
+        result.add(index);
+      }
+    }
+    start = end + 1;
+  }
+  return result;
+}
 
 String _pointsKey(List<int> points) => points.join(',');
 

@@ -126,6 +126,13 @@ final class BuildCommand extends Command<int> {
         valueHelp: 'file.png',
       )
       ..addFlag(
+        'index',
+        help:
+            'Also write a second library listing every icon by name. Keep it '
+            'out of an application that only draws a few icons: naming them '
+            'all is what stops the release build dropping the rest.',
+      )
+      ..addFlag(
         'recursive',
         abbr: 'r',
         help: 'Search sub directories of the input for SVG files.',
@@ -195,6 +202,7 @@ final class BuildCommand extends Command<int> {
       startCodePoint: _parseCodePoint(results.option('start-codepoint')!),
       curveTolerance: double.parse(results.option('curve-tolerance')!),
       vendorId: results.option('vendor-id')!.padRight(4).substring(0, 4),
+      emitIndex: results.flag('index'),
       recursive: results.flag('recursive'),
       writePubspec: results.flag('pubspec'),
       codePointMapPath: results.option('codepoints'),
@@ -219,6 +227,9 @@ final class BuildCommand extends Command<int> {
       ..writeln()
       ..writeln('  font     ${p.normalize(result.fontPath)}')
       ..writeln('  bindings ${p.normalize(result.libraryPath)}');
+    if (result.indexPath case final path?) {
+      _output.writeln('  index    ${p.normalize(path)}');
+    }
     if (result.pubspecPath case final path?) {
       _output.writeln('  pubspec  ${p.normalize(path)}');
     }

@@ -1,0 +1,14 @@
+# Independent implementations used to check the generated fonts.
+#
+# Nothing here is needed to build a font — the Dart package does that on its
+# own. These are here so that the tests are not only checking the generator
+# against itself: fontTools parses the font, FreeType rasterises it, resvg
+# rasterises the source artwork, HarfBuzz shapes text with it, and the
+# OpenType Sanitizer decides whether a browser would accept it.
+fonttools==4.64.0
+freetype-py==2.5.1
+numpy==2.4.6
+opentype-sanitizer==9.2.0
+Pillow==12.3.0
+resvg-py==0.5.0
+uharfbuzz==0.56.1

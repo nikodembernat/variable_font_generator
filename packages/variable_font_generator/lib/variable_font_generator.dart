@@ -48,13 +48,24 @@ export 'src/font/glyph.dart' show VariableGlyph;
 export 'src/font/sfnt.dart'
     show FontTableData, assembleSfnt, tableCheckSum, trueTypeSfntVersion;
 export 'src/font/tables/cmap_table.dart' show buildCmapTable;
+export 'src/font/tables/core_tables.dart'
+    show
+        buildHeadTable,
+        buildHheaTable,
+        buildHmtxTable,
+        buildMaxpTable,
+        buildPostTable,
+        headMagicNumber;
 export 'src/font/tables/fvar_table.dart' show NamedInstance, buildFvarTable;
 export 'src/font/tables/glyf_table.dart'
     show GlyfAndLoca, GlyphFlag, buildGlyfAndLoca;
 export 'src/font/tables/gvar_table.dart'
     show GlyphVariationTuple, PointDelta, buildGvarTable, phantomPointCount;
 export 'src/font/tables/name_table.dart' show NameId, NameTableBuilder;
+export 'src/font/tables/os2_table.dart' show buildOs2Table;
 export 'src/font/tables/stat_table.dart' show AxisValueName, buildStatTable;
+export 'src/font/ttf_reader.dart'
+    show FontParseException, ParsedFont, ParsedTuple, TableRecord;
 export 'src/font/ttf_writer.dart' show writeVariableFont;
 export 'src/font/variable_font.dart' show VariableFont;
 export 'src/generator/icon_axes.dart' show IconAxis, IconAxisSet;
@@ -90,9 +101,15 @@ export 'src/geometry/path.dart'
         QuadraticSegment,
         SubPath;
 export 'src/geometry/path_parser.dart' show PathParseException, parseSvgPath;
+export 'src/geometry/polygon.dart'
+    show distanceToPolygon, flattenSubPath, isPointInPolygon, isPolygonInside;
 export 'src/geometry/stroke_style.dart' show StrokeCap, StrokeJoin;
 export 'src/geometry/stroke_template.dart'
-    show StrokeContourTemplate, StrokePointTemplate, StrokeTemplate;
+    show
+        ContourFillBehaviour,
+        StrokeContourTemplate,
+        StrokePointTemplate,
+        StrokeTemplate;
 export 'src/geometry/stroker.dart' show Stroker;
 export 'src/geometry/vec2.dart' show Vec2;
 export 'src/raster/coverage_bitmap.dart' show CoverageBitmap;

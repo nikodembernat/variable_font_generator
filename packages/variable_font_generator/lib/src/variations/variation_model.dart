@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:collection/collection.dart';
 import 'package:meta/meta.dart';
 
@@ -223,14 +225,33 @@ final class VariationModel {
     List<AxisLocation> sorted,
     List<String> axisOrder,
   ) {
+    // How far each axis is used in either direction. A master's influence
+    // reaches out to there, not merely to its own peak: a master halfway along
+    // an axis has to keep contributing past itself, or everything between it
+    // and the next one falls back towards the default.
+    final lowest = <String, double>{};
+    final highest = <String, double>{};
+    for (final location in sorted) {
+      for (final entry in location.entries) {
+        lowest[entry.key] = math.min(
+          entry.value,
+          lowest[entry.key] ?? entry.value,
+        );
+        highest[entry.key] = math.max(
+          entry.value,
+          highest[entry.key] ?? entry.value,
+        );
+      }
+    }
+
     final supports = <MasterSupport>[];
     for (final location in sorted) {
       final region = <String, AxisRegion>{
         for (final entry in location.entries)
           entry.key: (
-            start: entry.value < 0 ? entry.value : 0,
+            start: entry.value < 0 ? (lowest[entry.key] ?? entry.value) : 0,
             peak: entry.value,
-            end: entry.value > 0 ? entry.value : 0,
+            end: entry.value > 0 ? (highest[entry.key] ?? entry.value) : 0,
           ),
       };
       final axes = region.keys.toSet();

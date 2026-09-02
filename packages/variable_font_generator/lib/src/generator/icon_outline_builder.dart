@@ -128,14 +128,14 @@ final class IconOutlineBuilder {
   /// — a tick, a cross, a pair of battery terminals — that exists to be read
   /// against the shape around it.
   static Set<SubPath> _knockedOutSubPaths(SvgIcon icon) {
-    final containers = <List<Vec2>>[];
+    final containers = <({SubPath subPath, List<Vec2> polygon})>[];
     for (final shape in icon.shapes) {
       if (!shape.stroked || shape.filled) {
         continue;
       }
       for (final subPath in shape.path.subPaths) {
         if (subPath.closed) {
-          containers.add(flattenSubPath(subPath));
+          containers.add((subPath: subPath, polygon: flattenSubPath(subPath)));
         }
       }
     }
@@ -149,13 +149,18 @@ final class IconOutlineBuilder {
         continue;
       }
       for (final subPath in shape.path.subPaths) {
-        if (subPath.closed) {
-          continue;
-        }
         final polygon = flattenSubPath(subPath);
         for (final container in containers) {
-          if (!identical(container, polygon) &&
-              isPolygonInside(polygon, container)) {
+          if (identical(container.subPath, subPath)) {
+            continue;
+          }
+          if (isPolygonInside(
+            polygon,
+            container.polygon,
+            // A detail stroke commonly meets the outline it sits within, so a
+            // point that far outside is still counted as contained.
+            boundaryTolerance: shape.strokeWidth / 2,
+          )) {
             result.add(subPath);
             break;
           }

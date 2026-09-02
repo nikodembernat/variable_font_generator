@@ -1,0 +1,73 @@
+name: full icon set
+
+# The suite above runs on a slice of Lucide chosen to exercise every code path.
+# This one runs on all of it, which is slow enough to be worth keeping off the
+# pull request path but is the only way to catch an icon that draws something
+# nobody thought to write a fixture for.
+on:
+  schedule:
+    - cron: '0 4 * * 1'
+  workflow_dispatch:
+    inputs:
+      lucide_ref:
+        description: The Lucide git ref to build from.
+        default: main
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build-and-verify:
+    name: build and verify every Lucide icon
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: pip install -r tool/requirements.txt
+
+      - name: fetch Lucide
+        run: |
+          git clone --depth 1 --filter=blob:none --sparse \
+            --branch "${{ inputs.lucide_ref || 'main' }}" \
+            https://github.com/lucide-icons/lucide.git build/lucide
+          cd build/lucide && git sparse-checkout set icons
+
+      - name: build the font
+        run: |
+          cd packages/variable_font_generator
+          dart pub get
+          dart run bin/variable_font_generator.dart build ../../build/lucide/icons \
+            --output ../../build/full \
+            --family LucideVariable \
+            --class-name LucideIcons \
+            --package lucide_icons \
+            --index \
+            --pubspec \
+            --codepoints ../../build/full/codepoints.json \
+            --preview ../../build/full/preview.png
+
+      - name: verify it
+        run: |
+          python3 tool/verify_font.py \
+            --icons build/lucide/icons \
+            --font build/full/lib/fonts/LucideVariable.ttf \
+            --codepoints build/full/codepoints.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lucide-variable-font
+          path: |
+            build/full/lib/fonts/LucideVariable.ttf
+            build/full/lib/lucide_icons.dart
+            build/full/codepoints.json
+            build/full/preview.png

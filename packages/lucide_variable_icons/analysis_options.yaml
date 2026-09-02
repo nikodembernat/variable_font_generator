@@ -1,0 +1,15 @@
+include: package:leancode_lint/analysis_options_package.yaml
+
+plugins:
+  leancode_lint: ^27.0.0
+
+analyzer:
+  exclude:
+    - build/**
+
+linter:
+  rules:
+    # See the note in the generator package: these two rules cannot be
+    # satisfied alongside `public_member_api_docs` with today's analyzer.
+    use_primary_constructors: false
+    unnecessary_type_name_in_constructor: false

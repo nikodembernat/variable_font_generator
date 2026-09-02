@@ -64,10 +64,66 @@ bool isPointInPolygon(Vec2 point, List<Vec2> polygon) {
   return inside;
 }
 
-/// Whether every point of [inner] lies inside [outer].
+/// The distance from [point] to the nearest edge of [polygon].
+double distanceToPolygon(Vec2 point, List<Vec2> polygon) {
+  var best = double.infinity;
+  for (
+    var current = 0, previous = polygon.length - 1;
+    current < polygon.length;
+    previous = current++
+  ) {
+    final distance = _distanceToSegment(
+      point,
+      polygon[previous],
+      polygon[current],
+    );
+    if (distance < best) {
+      best = distance;
+    }
+  }
+  return best;
+}
+
+double _distanceToSegment(Vec2 point, Vec2 start, Vec2 end) {
+  final along = end - start;
+  final lengthSquared = along.lengthSquared;
+  if (lengthSquared == 0) {
+    return point.distanceTo(start);
+  }
+  final t = ((point - start).dot(along) / lengthSquared).clamp(0.0, 1.0);
+  return point.distanceTo(start + along * t);
+}
+
+/// Whether [inner] lies inside [outer].
 ///
-/// Demanding all of them rather than a majority is deliberate: a shape that
-/// straddles a boundary is not clearly inside anything, and treating it as if
-/// it were would change how it is drawn on the strength of a guess.
-bool isPolygonInside(List<Vec2> inner, List<Vec2> outer) =>
-    inner.isNotEmpty && inner.every((point) => isPointInPolygon(point, outer));
+/// Every point of [inner] must be inside, or within [boundaryTolerance] of the
+/// boundary, and at least one must be strictly inside. The tolerance matters
+/// because a detail stroke very often starts or ends exactly on the outline it
+/// sits within — the door of a house icon meets the wall it is drawn in — and a
+/// test that took those end points for "outside" would decide the whole detail
+/// was not contained.
+///
+/// Requiring the rest to be inside rather than taking a majority is deliberate:
+/// a shape that genuinely straddles a boundary is not inside anything, and
+/// treating it as if it were would change how it is drawn on a guess.
+bool isPolygonInside(
+  List<Vec2> inner,
+  List<Vec2> outer, {
+  double boundaryTolerance = 0,
+}) {
+  if (inner.isEmpty) {
+    return false;
+  }
+  var anyStrictlyInside = false;
+  for (final point in inner) {
+    if (isPointInPolygon(point, outer)) {
+      anyStrictlyInside = true;
+      continue;
+    }
+    if (boundaryTolerance <= 0 ||
+        distanceToPolygon(point, outer) > boundaryTolerance) {
+      return false;
+    }
+  }
+  return anyStrictlyInside;
+}

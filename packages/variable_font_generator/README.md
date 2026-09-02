@@ -1,2 +1,208 @@
-A sample command-line application with an entrypoint in `bin/`, library code
-in `lib/`, and example unit test in `test/`.
+# variable_font_generator
+
+Turns a directory of SVG icons into a **variable** OpenType font, and writes the
+Flutter bindings for it.
+
+The font responds to the four axes Flutter's `Icon` widget already knows how to
+drive, so an icon can be animated from outlined to filled, thickened to match
+the text beside it, or thinned as it grows — without shipping a second file.
+
+```dart
+Icon(MyIcons.house, size: 32, fill: 1, weight: 700)
+```
+
+| axis | `Icon` parameter | range | what it does |
+| ---- | ---------------- | ----- | ------------ |
+| `FILL` | `fill` | 0 – 1 | closes the holes in outlined shapes, cutting any detail strokes back out of the solid |
+| `wght` | `weight` | 100 – 700 | thickens the strokes |
+| `GRAD` | `grade` | -50 – 200 | thickens them more finely, for matching surrounding text |
+| `opsz` | `opticalSize` | 20 – 48 | thins them as the icon grows, so it reads the same at any size |
+
+## Install
+
+```sh
+dart pub global activate variable_font_generator
+```
+
+Or add it as a dev dependency and run it with `dart run`:
+
+```sh
+dart pub add --dev variable_font_generator
+```
+
+## Build a font
+
+```sh
+variable_font_generator build assets/icons \
+  --output packages/my_icons \
+  --family MyIcons \
+  --package my_icons \
+  --class-name MyIcons \
+  --pubspec \
+  --codepoints packages/my_icons/codepoints.json
+```
+
+That writes a complete Flutter package:
+
+```
+packages/my_icons/
+├── pubspec.yaml                 # declares the font family
+├── codepoints.json              # which code point each icon has
+└── lib/
+    ├── fonts/MyIcons.ttf
+    └── my_icons.dart            # class MyIcons { static const IconData house = ...; }
+```
+
+Drop `--package` and `--pubspec` to build for an application's own `assets/`
+directory instead; the generated `IconData` values then leave `fontPackage`
+unset, which is what a font declared in the application's own pubspec needs.
+
+### Keep the code points stable
+
+`--codepoints <file>` remembers which code point every icon was given. Pass it
+on every build. Without it, adding or removing one icon shifts all the ones
+after it — and because `IconData(0xe123)` is compiled into applications, that
+silently changes what an already-published build draws.
+
+### Options
+
+```
+--output, -o        Where everything is written.            (build/icons)
+--family            The font family name.                   (CustomIcons)
+--class-name        The generated Dart class.               (the family name)
+--package           The Flutter package the font ships in.
+--library           File name of the generated library.
+--naming            camel | snake                           (camel)
+--axes              Which of FILL, wght, GRAD, opsz to offer.  (all four)
+--index             Also write a library listing every icon by name.
+--codepoints        A JSON file remembering the code points.
+--start-codepoint   Where to start assigning them.          (0xE000)
+--units-per-em      The design grid resolution.             (1000)
+--curve-tolerance   How far a curve may deviate, in design units.  (1)
+--mirror-rtl        Icons to flip in right-to-left layouts.
+--preview           Write a PNG contact sheet of the result.
+--pubspec           Write a pubspec declaring the font. Needs --package.
+--recursive, -r     Search sub directories for SVG files.
+--font-version --copyright --designer --manufacturer --license --license-url
+--vendor-id         Metadata stored in the font.
+```
+
+Run `variable_font_generator build --help` for the full list.
+
+## What it does with the artwork
+
+The generator is built for **stroked** icon sets — Lucide, Feather, Tabler and
+anything else drawn as centre lines with a stroke width rather than as filled
+shapes. That is what makes the axes possible: the stroke width is a number it
+can turn.
+
+Every SVG shape element is understood (`path`, `circle`, `ellipse`, `rect`,
+`line`, `polyline`, `polygon`, and `g` for grouping), along with elliptical
+arcs, inherited presentation attributes, `style` attributes and `transform`.
+
+Each icon is stroked into an outline in which every point is an affine function
+of the stroke width. Re-stroking at another weight therefore produces an outline
+with the same contours, the same points, in the same order — which is precisely
+what OpenType's `gvar` table needs in order to store the difference between
+weights. Getting that invariant right is most of the work; the stroker also
+handles the cases naive offsetting gets wrong:
+
+- a path that crosses itself is cut at the crossings and stroked in pieces, so
+  the fill rule does not punch a hole where the two passes overlap;
+- a stroke wider than the shape it outlines drops its inner boundary rather than
+  turning it inside out;
+- a sharp inner corner falls back from its miter point before it can spike;
+- a zero-length sub path becomes a dot, which is what SVG asks for.
+
+### The fill axis
+
+Filling closes the holes in closed shapes. A detail stroke sitting inside one —
+the tick in a circle, the terminals in a battery, the door in a house — narrows
+to nothing as the fill closes while a reversed copy widens in its place, so a
+filled icon shows its detail as a gap cut out of the solid rather than losing it
+in the fill.
+
+An open stroke that is not inside anything has no interior to fill, so `FILL`
+leaves it alone. That is a real limitation rather than an oversight: an arrow
+has no filled form, and inventing one would be guessing.
+
+## Using it as a library
+
+The command line is a thin wrapper. Everything is available directly:
+
+```dart
+import 'dart:io';
+import 'package:variable_font_generator/variable_font_generator.dart';
+
+final icons = loadSvgIcons(Directory('assets/icons'));
+
+final font = const IconFontGenerator().generate(
+  icons: icons,
+  names: const FontNames(family: 'MyIcons'),
+);
+File('MyIcons.ttf').writeAsBytesSync(font.bytes);
+
+final bindings = const FlutterBindingsGenerator(
+  className: 'MyIcons',
+  font: FontReference.application(family: 'MyIcons'),
+).generate(font.icons);
+File('lib/my_icons.dart').writeAsStringSync(bindings);
+```
+
+The pieces underneath are public too, and useful on their own: `parseSvgPath`
+and `parseSvgIcon` for reading artwork, `Stroker` for turning centre lines into
+outlines, `VariationModel` for solving master positions into deltas,
+`writeVariableFont` for assembling a font, `ParsedFont` for reading one back and
+applying its variations, and `Rasterizer` for drawing any of it into a bitmap.
+
+## How the axes are realised
+
+`wght`, `GRAD` and `opsz` all scale the stroke width, over the ranges Material
+Symbols uses so that an application can pass the same numbers to either.
+
+An outline is affine in the stroke width, and affine in the fill amount, but not
+in their product — filling moves a hole's boundary onto a point, and how far
+each point travels depends on how thick the stroke was to begin with. Variation
+interpolation is linear, so the design space carries a master at every corner
+where the two effects meet: the default, each axis alone at both ends, and each
+stroke axis combined with a full fill. Fourteen in all, which makes
+interpolation exact everywhere rather than approximate.
+
+No `avar` table is written, because each axis is arranged to be linear on either
+side of its default, which the normalised axis mapping already provides. No
+`HVAR` either: advance widths do not vary, and a missing `HVAR` means exactly
+that.
+
+## Is it right?
+
+The package does not check itself against itself.
+
+- Every master position is read back out of the finished file and compared
+  against the outlines that went in. They match to the unit.
+- The generated font is rasterised with **FreeType** and the source SVGs with
+  **resvg**, and the two pictures are compared. Over all 1798 Lucide icons the
+  mean overlap is 0.992 and the worst is 0.973.
+- The **OpenType Sanitizer** — the validator Chrome and Firefox use to decide
+  whether to load a web font — accepts the output.
+- **fontTools** parses every table and instantiates the font at chosen axis
+  values; **HarfBuzz** shapes text with it.
+- Flutter golden tests render real `Icon` widgets through the actual engine,
+  which is the only thing that proves the axes reach Skia. A font whose `fvar`
+  or `gvar` is subtly wrong renders without complaint and simply refuses to
+  change shape.
+
+`tool/verify_font.py` in the repository runs the first four; see
+`.github/workflows/ci.yaml` for how they fit together.
+
+## Limitations
+
+- Built for stroked artwork. A set drawn as filled shapes will produce a font,
+  but the stroke-width axes will have nothing to turn.
+- Gradients, filters, clip paths, masks and text are ignored. Icon sets do not
+  use them; if yours does, flatten it first.
+- A `transform` with a non-uniform scale scales the stroke by the geometric mean
+  of the two factors, rather than making it elliptical as SVG would.
+- Composite glyphs are never written, so identical icons do not share outlines.
+- `gvar` dominates the file size — about 4 KB per icon with all four axes. Use
+  `--axes` to drop the ones you do not need; a weight-only font is roughly a
+  fifth of the size.

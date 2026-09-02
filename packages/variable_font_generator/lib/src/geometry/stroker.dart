@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:meta/meta.dart';
 import 'package:variable_font_generator/src/geometry/bezier.dart';
 import 'package:variable_font_generator/src/geometry/path.dart';
+import 'package:variable_font_generator/src/geometry/polygon.dart';
 import 'package:variable_font_generator/src/geometry/stroke_style.dart';
 import 'package:variable_font_generator/src/geometry/stroke_template.dart';
 import 'package:variable_font_generator/src/geometry/vec2.dart';
@@ -127,17 +128,30 @@ final class Stroker {
     bool knockedOutWhenFilled = false,
   }) {
     if (knockedOutWhenFilled) {
-      // A detail stroke sitting inside a shape that the fill axis is about to
-      // make solid. Drawn as it is, it would simply merge into the fill and
-      // vanish. Instead it narrows to nothing as the fill closes, while a
-      // reversed copy widens from nothing in its place, so that at full fill
-      // the detail is a gap cut out of the solid rather than a line lost in it.
+      // Something sitting inside a shape that the fill axis is about to make
+      // solid. Drawn as it is, it would merge into the fill and vanish; instead
+      // it is faded away as the fill closes while a reversed copy takes its
+      // place, so that at full fill it reads as a gap cut out of the solid.
       final drawn = strokeSubPath(subPath, filled: filled);
+      if (!subPath.closed && !_isImplicitlyClosed(_toElements(subPath))) {
+        // An open stroke has no area once its width reaches zero, so narrowing
+        // it is enough to make it disappear.
+        return StrokeTemplate([
+          for (final contour in drawn.contours)
+            contour.withBehaviour(ContourFillBehaviour.fadeOut),
+          for (final contour in drawn.contours)
+            contour.reversed.withBehaviour(ContourFillBehaviour.knockOut),
+        ]);
+      }
+      // A closed shape still encloses area with no stroke width left, so it is
+      // shrunk onto a point instead, and the copy that replaces it is the shape
+      // filled rather than merely outlined.
+      final centre = _centroidOf(_toElements(subPath));
+      final outer = drawn.contours.first;
       return StrokeTemplate([
         for (final contour in drawn.contours)
-          contour.withBehaviour(ContourFillBehaviour.fadeOut),
-        for (final contour in drawn.contours)
-          contour.reversed.withBehaviour(ContourFillBehaviour.knockOut),
+          contour.withBehaviour(ContourFillBehaviour.collapse, target: centre),
+        outer.reversed.withBehaviour(ContourFillBehaviour.grow, target: centre),
       ]);
     }
     final elements = _toElements(subPath);
@@ -196,30 +210,96 @@ final class Stroker {
 
     final firstArea = _templateArea(first);
     final secondArea = _templateArea(second);
-    if (filled || firstArea.sign != secondArea.sign) {
+    final outerIsFirst = firstArea.abs() >= secondArea.abs();
+    final outer = outerIsFirst ? first : second;
+    final inner = outerIsFirst ? second : first;
+    if (filled || _hasSwallowedItsInside(elements, inner)) {
       // Either the shape is painted, so it has no hole to begin with, or the
-      // stroke is thicker than the shape is wide and the inner boundary has
-      // turned itself inside out. Both mean a single solid contour: the wider
-      // of the two sides already covers the interior and the stroke together.
-      final outer = firstArea.abs() >= secondArea.abs() ? first : second;
+      // stroke is thick enough to have covered the whole inside of it. Both
+      // mean a single solid contour: the outer boundary already covers the
+      // interior and the stroke together.
       return StrokeTemplate([_orientSolid(outer)]);
     }
 
-    // Whichever side encloses more area is the outer boundary; the other one is
-    // the hole the fill axis closes.
-    final (outer, inner) = firstArea.abs() >= secondArea.abs()
-        ? (first, second.reversed)
-        : (second, first.reversed);
+    // The side enclosing less area is the hole the fill axis closes. It is
+    // reversed so that it winds against the outer boundary and so punches
+    // through it rather than adding to it.
     return StrokeTemplate([
       _orientSolid(outer),
       _orientHole(
         StrokeContourTemplate(
-          points: inner.points,
+          points: inner.reversed.points,
           behaviour: ContourFillBehaviour.collapse,
           collapseTarget: _centroidOf(elements),
         ),
       ),
     ]);
+  }
+
+  /// Whether the stroke is thick enough to have covered the whole inside of
+  /// the shape, leaving no room for a hole.
+  ///
+  /// Offsetting a boundary inwards only makes sense while the shape is wider
+  /// than the offset. Past that the inner boundary turns itself inside out and
+  /// starts tracing a shape again — a circle of radius `r` offset inwards by
+  /// `h > r` comes back as a circle of radius `h - r`, whose area is perfectly
+  /// respectable and gives no hint that anything is wrong. Punching that
+  /// through the outer boundary leaves a hole in the middle of what should be
+  /// solid ink.
+  ///
+  /// What actually decides it is how much room the shape has: a hole can only
+  /// exist where some point inside the centre line is further than the half
+  /// width from it. So the inner boundary's own points are measured against the
+  /// centre line, along with the centroid, and if none of them has that much
+  /// room the hole is dropped. Points at a corner sit right on the centre line
+  /// by construction, which is why this asks for the largest clearance rather
+  /// than the smallest.
+  ///
+  /// The judgement is made once, at a half width of one, and holds at every
+  /// weight. That is deliberate: the alternative is a shape whose number of
+  /// contours depends on how heavily it is drawn, which is exactly what
+  /// variation deltas cannot express.
+  bool _hasSwallowedItsInside(
+    List<_Element> elements,
+    StrokeContourTemplate inner,
+  ) {
+    const halfWidth = 1.0;
+    final centreLine = [for (final element in elements) element.start];
+    if (centreLine.length < 3) {
+      return false;
+    }
+
+    // A shape several stroke widths across cannot have been swallowed, and
+    // measuring every point against every edge is the expensive part.
+    var minX = double.infinity;
+    var minY = double.infinity;
+    var maxX = double.negativeInfinity;
+    var maxY = double.negativeInfinity;
+    for (final point in centreLine) {
+      minX = math.min(minX, point.x);
+      minY = math.min(minY, point.y);
+      maxX = math.max(maxX, point.x);
+      maxY = math.max(maxY, point.y);
+    }
+    if (math.min(maxX - minX, maxY - minY) > 4 * halfWidth) {
+      return false;
+    }
+
+    var clearance = 0.0;
+    void consider(Vec2 point) {
+      if (!isPointInPolygon(point, centreLine)) {
+        return;
+      }
+      clearance = math.max(clearance, distanceToPolygon(point, centreLine));
+    }
+
+    consider(_centroidOf(elements));
+    for (final point in inner.points) {
+      consider(point.at(halfWidth));
+    }
+    // A little under the half width, so that rounding cannot turn a hole that
+    // only just exists into one that only just does not.
+    return clearance < halfWidth * 0.9;
   }
 
   /// The outline of a sub path that collapsed to a single point.

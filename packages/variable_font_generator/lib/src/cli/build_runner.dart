@@ -15,6 +15,7 @@ typedef BuildResult = ({
   int fontBytes,
   String fontPath,
   String libraryPath,
+  String? indexPath,
   String? pubspecPath,
   String? previewPath,
   String? codePointMapPath,
@@ -79,7 +80,7 @@ BuildResult runBuild(BuildOptions options, {void Function(String)? log}) {
     ),
     null => FontReference.application(family: options.family),
   };
-  final bindings = FlutterBindingsGenerator(
+  final bindingsGenerator = FlutterBindingsGenerator(
     className: options.className,
     font: reference,
     axisSet: options.axisSet,
@@ -87,12 +88,30 @@ BuildResult runBuild(BuildOptions options, {void Function(String)? log}) {
     mirroredInRightToLeft: options.mirroredInRightToLeft,
     sourceDescription:
         '${icons.length} icons from ${p.basename(options.inputDirectory)}',
-  ).generate(font.icons);
+  );
+  final bindings = bindingsGenerator.generate(font.icons);
   final libraryPath = p.join(
     options.outputDirectory,
     options.libraryRelativePath,
   );
   _write(libraryPath, (file) => file.writeAsStringSync(bindings));
+
+  String? indexPath;
+  if (options.emitIndex) {
+    indexPath = p.join(options.outputDirectory, options.indexRelativePath);
+    _write(
+      indexPath,
+      (file) => file.writeAsStringSync(
+        bindingsGenerator.generateIndex(
+          font.icons,
+          libraryImport: switch (options.packageName) {
+            final package? => 'package:$package/${options.libraryFileName}',
+            null => options.libraryFileName,
+          },
+        ),
+      ),
+    );
+  }
 
   String? pubspecPath;
   if (options.writePubspec) {
@@ -147,6 +166,7 @@ BuildResult runBuild(BuildOptions options, {void Function(String)? log}) {
     fontBytes: font.bytes.length,
     fontPath: fontPath,
     libraryPath: libraryPath,
+    indexPath: indexPath,
     pubspecPath: pubspecPath,
     previewPath: previewPath,
     codePointMapPath: codePointsPath,

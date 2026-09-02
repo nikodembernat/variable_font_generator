@@ -23,6 +23,17 @@ final class SvgParseException implements Exception {
   String toString() => 'SvgParseException in $source: $message';
 }
 
+/// The property values SVG starts from before a document says anything.
+const _initialContext = (
+  fill: 'black',
+  stroke: 'none',
+  strokeWidth: 1.0,
+  cap: StrokeCap.butt,
+  join: StrokeJoin.miter,
+  miterLimit: 4.0,
+  transform: AffineTransform.identity,
+);
+
 /// The painting properties inherited down the SVG element tree.
 typedef _Context = ({
   String fill,
@@ -59,15 +70,10 @@ SvgIcon parseSvgIcon(String document, {required String name}) {
 
   final viewBox = _parseViewBox(root, name);
   final shapes = <SvgShape>[];
-  _collect(root, (
-    fill: root.getAttribute('fill') ?? 'black',
-    stroke: root.getAttribute('stroke') ?? 'none',
-    strokeWidth: _parseLength(root.getAttribute('stroke-width')) ?? 1,
-    cap: StrokeCap.parse(root.getAttribute('stroke-linecap') ?? 'butt'),
-    join: StrokeJoin.parse(root.getAttribute('stroke-linejoin') ?? 'miter'),
-    miterLimit: _parseLength(root.getAttribute('stroke-miterlimit')) ?? 4,
-    transform: _transformOf(root),
-  ), shapes);
+  // The root's own attributes are read exactly the way a group's are,
+  // `style` included, so that the same declaration means the same thing
+  // wherever it sits.
+  _collect(root, _inherit(_initialContext, root), shapes);
 
   return SvgIcon(
     name: name,

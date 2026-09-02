@@ -1,0 +1,122 @@
+name: ci
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # The generator itself is pure Dart. Running it without a Flutter SDK anywhere
+  # in sight is the point: the package has to be usable by anyone with only the
+  # Dart SDK, and this job would fail the moment a Flutter import crept in.
+  generator:
+    name: generator (dart ${{ matrix.sdk }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        sdk: [stable, '3.13.0']
+    defaults:
+      run:
+        working-directory: packages/variable_font_generator
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: ${{ matrix.sdk }}
+
+      - run: dart pub get
+
+      # The formatter's output changes between SDK releases, so it is only
+      # enforced on one of them.
+      - name: dart format
+        if: matrix.sdk == 'stable'
+        run: dart format --output=none --set-exit-if-changed .
+
+      - run: dart analyze --fatal-infos
+
+      - run: dart test --reporter=expanded
+
+  # The generated Flutter package, rendered by the real Flutter engine. This is
+  # what proves the variation axes actually reach Skia: a font whose fvar or
+  # gvar is subtly wrong renders without complaint and simply refuses to change
+  # shape, which only a picture can catch.
+  flutter:
+    name: flutter goldens
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/lucide_variable_icons
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+      - run: dart format --output=none --set-exit-if-changed .
+      - run: flutter analyze
+      - run: flutter test --reporter=expanded
+
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-failures
+          path: packages/lucide_variable_icons/test/failures/
+          if-no-files-found: ignore
+
+  # Everything above checks the generator against its own idea of what a font
+  # is. This job checks it against everyone else's: the OpenType Sanitizer
+  # decides whether a browser would load the file, fontTools parses every table,
+  # HarfBuzz shapes with it, FreeType rasterises it, and resvg rasterises the
+  # source artwork so the two pictures can be compared.
+  independent-verification:
+    name: verify against fontTools, FreeType, resvg and OTS
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: pip install -r tool/requirements.txt
+
+      - name: build the font
+        run: |
+          cd packages/variable_font_generator
+          dart pub get
+          dart run bin/variable_font_generator.dart build test/fixtures/lucide \
+            --output ../../build/verify \
+            --family LucideVariable \
+            --codepoints ../../build/verify/codepoints.json
+
+      - name: verify it
+        run: |
+          python3 tool/verify_font.py \
+            --icons packages/variable_font_generator/test/fixtures/lucide \
+            --font build/verify/fonts/LucideVariable.ttf \
+            --codepoints build/verify/codepoints.json \
+            --report build/verify/comparison.png
+
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: font-comparison
+          path: build/verify/comparison.png
+          if-no-files-found: ignore

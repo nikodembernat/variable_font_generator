@@ -61,6 +61,15 @@ enum ContourFillBehaviour {
   /// icon shows a tick as a gap in the solid rather than as a line on top of
   /// it.
   knockOut,
+
+  /// The contour grows from a single point as the fill goes to one.
+  ///
+  /// The counterpart of [collapse], and what cuts a closed shape back out of
+  /// the larger one around it: the play triangle inside a circle would
+  /// otherwise fill solid and disappear into it. A closed contour cannot be
+  /// made to vanish by narrowing its stroke — with no width left it is still a
+  /// loop enclosing area — so it is shrunk onto a point instead.
+  grow,
 }
 
 /// A contour of a [StrokeTemplate].
@@ -72,8 +81,10 @@ final class StrokeContourTemplate {
     this.behaviour = ContourFillBehaviour.unaffected,
     this.collapseTarget,
   }) : assert(
-         behaviour != ContourFillBehaviour.collapse || collapseTarget != null,
-         'A collapsing contour needs somewhere to collapse to',
+         (behaviour != ContourFillBehaviour.collapse &&
+                 behaviour != ContourFillBehaviour.grow) ||
+             collapseTarget != null,
+         'A contour that collapses or grows needs a point to do it around',
        );
 
   /// The points of the contour, in traversal order.
@@ -102,6 +113,10 @@ final class StrokeContourTemplate {
               point.at(strokeScale).lerp(collapseTarget!, fill),
             ContourFillBehaviour.fadeOut => point.at(strokeScale * (1 - fill)),
             ContourFillBehaviour.knockOut => point.at(strokeScale * fill),
+            ContourFillBehaviour.grow => collapseTarget!.lerp(
+              point.at(strokeScale),
+              fill,
+            ),
           }, onCurve: point.onCurve),
       ]);
 
