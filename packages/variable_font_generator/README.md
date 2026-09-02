@@ -264,9 +264,9 @@ in the width, but not in their products — filling moves a hole's boundary onto
 point, and how far each point travels depends on how thick the stroke was and
 how far the shape was stretched. Variation interpolation is linear, so the
 design space carries a master wherever two effects meet: the default, each axis
-alone at both ends, and each of the others combined with a fill, at half and at
-full. Twenty-one in all, or twenty-seven with `wdth`, which makes interpolation
-exact everywhere rather than approximate.
+alone at both ends, and each of the others against a fill, both at the handover
+and at full. Twenty-one in all, or twenty-seven with `wdth`, which makes
+interpolation exact everywhere rather than approximate.
 
 Stroke width and width need no master together, which is the whole reason for
 defining width the way it is: moving the centre line and leaving the stroke
