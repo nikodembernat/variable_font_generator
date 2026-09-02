@@ -271,7 +271,9 @@ how far the shape was stretched. Variation interpolation is linear, so the
 design space carries a master wherever two effects meet: the default, each axis
 alone at both ends, and each of the others against a fill, both at the handover
 and at full. Twenty-one in all, or twenty-seven with `wdth`, which makes
-interpolation exact everywhere rather than approximate.
+interpolation exact everywhere the design space itself bends. The one bend it
+cannot know about in advance is the width at which a hole closes, which the
+artwork puts where it likes; see the limitations.
 
 Stroke width and width need no master together, which is the whole reason for
 defining width the way it is: moving the centre line and leaving the stroke
