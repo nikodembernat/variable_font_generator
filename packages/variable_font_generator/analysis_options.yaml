@@ -1,0 +1,16 @@
+include: package:leancode_lint/analysis_options_package.yaml
+
+plugins:
+  leancode_lint: ^27.0.0
+
+linter:
+  rules:
+    # `use_primary_constructors` and `public_member_api_docs` are mutually
+    # unsatisfiable today: the analyzer has no place to attach a doc comment to
+    # a primary constructor, so every documented public class reports a missing
+    # doc. `unnecessary_type_name_in_constructor` hits the same immaturity — the
+    # `.new` shorthand trips `inference_failure_on_uninitialized_variable`, and
+    # the rule also fires on named constructors that cannot use the shorthand.
+    # Both are re-enabled once the analyzer supports documenting them.
+    use_primary_constructors: false
+    unnecessary_type_name_in_constructor: false

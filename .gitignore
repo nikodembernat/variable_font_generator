@@ -1,0 +1,15 @@
+# Dart / Flutter
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+pubspec.lock
+
+# Scratch harnesses used during development
+packages/*/tool/_*.dart
+
+# Editors
+.idea/
+.vscode/
+*.iml
