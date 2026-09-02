@@ -91,17 +91,18 @@ Named the way the command line names them.
 | input | | |
 | --- | --- | --- |
 | `icons` | **required** | the directory of SVG files, searched recursively |
-| `output` | `build/icons` | where the font and the bindings are written |
+| `output` | the workspace | where the font and the bindings are written |
 | `family` | `class-name` | the font family, and the font file's name |
 | `class-name` | — | the class to hold the icons, such as `LucideIcons`. Naming one asks for the bindings, and names the font |
 | `extension-name` | — | an extension type over `IconData`, such as `LucideIconData`. Needs `class-name` |
 | `package` | — | the package named in `fontPackage` on every icon |
 | `codepoints` | — | a JSON file remembering each icon's code point |
+| `comments` | — | a JSON file of doc comments for the icons, keyed the same way. Needs `class-name` |
 | `mirror-rtl` | — | icons to flip in right-to-left layouts |
 
 `units-per-em`, `curve-tolerance` and `start-codepoint` shape the font, and
-`font-version`, `copyright`, `designer`, `manufacturer`, `license`,
-`license-url` and `vendor-id` are the metadata stored in it;
+`version`, `copyright`, `designer`, `manufacturer`, `license`, `license-url`
+and `vendor-id` are the metadata stored in it;
 [`action.yml`](action.yml) describes each one.
 
 ### Outputs

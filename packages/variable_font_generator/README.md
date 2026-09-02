@@ -148,6 +148,7 @@ silently changes what an already-published build draws.
                                                             (all but wdth)
 --index             Also write a library listing every icon by name.
 --codepoints        A JSON file remembering the code points.
+--comments          A JSON file of doc comments, keyed the same way.
 --start-codepoint   Where to start assigning them.          (0xE000)
 --units-per-em      The design grid resolution.             (1000)
 --curve-tolerance   How far a curve may deviate, in design units.  (1)

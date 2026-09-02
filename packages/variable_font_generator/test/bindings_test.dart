@@ -202,6 +202,37 @@ void main() {
     });
   });
 
+  group('parseIconComments', () {
+    test('reads a comment for each name it is given', () {
+      expect(
+        parseIconComments('{"house": "Home.", "x": "Closes the thing."}'),
+        {'house': 'Home.', 'x': 'Closes the thing.'},
+      );
+    });
+
+    test('keeps the newlines that separate the lines of a comment', () {
+      expect(parseIconComments(r'{"house": "Home.\nThe first tab."}'), {
+        'house': 'Home.\nThe first tab.',
+      });
+    });
+
+    test('treats a comment with nothing in it as no comment at all', () {
+      // Emptying an entry out should be the same as deleting it, rather than
+      // leaving a member with a blank line of documentation above it.
+      expect(
+        parseIconComments(r'{"house": "", "x": "   ", "y": "\n"}'),
+        isEmpty,
+      );
+    });
+
+    test('rejects anything that is not an object of comments', () {
+      expect(() => parseIconComments('[]'), throwsFormatException);
+      expect(() => parseIconComments('"house"'), throwsFormatException);
+      expect(() => parseIconComments('{"house": 3}'), throwsFormatException);
+      expect(() => parseIconComments('{"house": null}'), throwsFormatException);
+    });
+  });
+
   group('FlutterBindingsGenerator', () {
     const icons = [
       GeneratedIcon(name: 'house', codePoint: 0xe001, glyphId: 2),
@@ -489,6 +520,66 @@ void main() {
         reason:
             'Nothing in the file names IconData any more, and an unused '
             'import is an analysis failure in the project it lands in.',
+      );
+    });
+
+    test('says nothing about an icon it was told nothing about', () {
+      expect(
+        packageGenerator.generate(icons),
+        contains('  /// The `house` icon.\n'),
+      );
+    });
+
+    test('puts a comment above the line naming the source file', () {
+      const documented = FlutterBindingsGenerator(
+        className: 'MyIcons',
+        font: FontReference.application(family: 'MyFam'),
+        comments: {'arrow-right': 'Points at what comes next.'},
+      );
+      expect(
+        documented.generate(icons),
+        contains(
+          '  /// Points at what comes next.\n'
+          '  ///\n'
+          '  /// The `arrow-right` icon.\n'
+          '  static const IconData arrowRight = IconData(',
+        ),
+        reason:
+            'The comment is what a reader should see first, and which file '
+            'drew the icon is worth keeping either way.',
+      );
+    });
+
+    test('gives a comment of several lines several lines', () {
+      const documented = FlutterBindingsGenerator(
+        className: 'MyIcons',
+        font: FontReference.application(family: 'MyFam'),
+        comments: {'house': 'Home.\n\nThe first tab, by convention.'},
+      );
+      expect(
+        documented.generate(icons),
+        contains(
+          '  /// Home.\n'
+          '  ///\n'
+          '  /// The first tab, by convention.\n'
+          '  ///\n'
+          '  /// The `house` icon.\n',
+        ),
+      );
+    });
+
+    test('keys comments by the source name, not the identifier', () {
+      const documented = FlutterBindingsGenerator(
+        className: 'MyIcons',
+        font: FontReference.application(family: 'MyFam'),
+        comments: {'arrowRight': 'Written against the wrong name.'},
+      );
+      expect(
+        documented.generate(icons),
+        isNot(contains('Written against the wrong name.')),
+        reason:
+            'The same key the code point map uses, so that one file matches '
+            'the other.',
       );
     });
 

@@ -155,6 +155,7 @@ void main() {
       await expectUsageError(['--index']);
       await expectUsageError(['--extension-name', 'ProbeIconData']);
       await expectUsageError(['--library', 'probe_icons.dart']);
+      await expectUsageError(['--comments', 'comments.json']);
     });
   });
 
@@ -224,6 +225,49 @@ void main() {
       expect(summary.keys, isNot(contains('bindings')));
       expect(summary.keys, isNot(contains('class-name')));
       expect(summary['font'], endsWith('ProbeIcons.ttf'));
+    });
+  });
+
+  group('the command line documents the icons it is given comments for', () {
+    test('and says so when a comment names no icon it built', () async {
+      final directory = makeTemporaryDirectory();
+      final comments = p.join(directory.path, 'comments.json');
+      File(comments).writeAsStringSync(
+        '{"arrow-right": "Points at what comes next.", '
+        r'"house": "Home.\nThe first tab.", '
+        '"no-such-icon": "Left behind by a rename."}',
+      );
+
+      final result = await run([
+        'build',
+        fixtureDirectory,
+        '--output',
+        directory.path,
+        '--class-name',
+        'ProbeIcons',
+        '--comments',
+        comments,
+      ]);
+
+      expect(result.code, 0);
+      expect(
+        result.output,
+        contains('No icon is called "no-such-icon"'),
+        reason: 'A comment that goes nowhere is worth a word, not a failure.',
+      );
+
+      final bindings = File(p.join(directory.path, 'icons.dart'))
+          .readAsStringSync();
+      expect(
+        bindings,
+        contains(
+          '  /// Points at what comes next.\n'
+          '  ///\n'
+          '  /// The `arrow-right` icon.\n',
+        ),
+      );
+      expect(bindings, contains('  /// Home.\n  /// The first tab.\n  ///\n'));
+      expect(bindings, isNot(contains('Left behind by a rename.')));
     });
   });
 

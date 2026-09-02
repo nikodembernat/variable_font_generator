@@ -20,7 +20,7 @@ final class BuildCommand extends Command<int> {
         abbr: 'o',
         help: 'Directory the font and bindings are written to.',
         valueHelp: 'dir',
-        defaultsTo: 'build/icons',
+        defaultsTo: '.',
       )
       ..addOption(
         'family',
@@ -116,6 +116,14 @@ final class BuildCommand extends Command<int> {
             'it means adding or removing icons never moves the others, which '
             'would silently change what an already-published application '
             'draws.',
+        valueHelp: 'file.json',
+      )
+      ..addOption(
+        'comments',
+        help:
+            'A JSON file of doc comments for the generated icons, keyed by '
+            'icon name exactly as --codepoints is. Each becomes the summary '
+            'line of its member, above the line naming the source file.',
         valueHelp: 'file.json',
       )
       ..addOption(
@@ -216,6 +224,7 @@ final class BuildCommand extends Command<int> {
       for (final describesBindings in [
         if (extensionTypeName != null) '--extension-name',
         if (results.option('library') != null) '--library',
+        if (results.option('comments') != null) '--comments',
         if (results.flag('index')) '--index',
       ]) {
         usageException(
@@ -276,6 +285,7 @@ final class BuildCommand extends Command<int> {
       recursive: results.flag('recursive'),
       writePubspec: results.flag('pubspec'),
       codePointMapPath: results.option('codepoints'),
+      commentsPath: results.option('comments'),
       previewPath: results.option('preview'),
       summaryPath: results.option('summary'),
       mirroredInRightToLeft: results.multiOption('mirror-rtl').toSet(),

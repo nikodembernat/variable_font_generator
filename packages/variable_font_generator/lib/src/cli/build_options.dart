@@ -27,6 +27,7 @@ final class BuildOptions {
     this.recursive = false,
     this.writePubspec = false,
     this.codePointMapPath,
+    this.commentsPath,
     this.previewPath,
     this.summaryPath,
     this.emitIndex = false,
@@ -104,6 +105,13 @@ final class BuildOptions {
 
   /// Where the code point assignments are remembered between builds.
   final String? codePointMapPath;
+
+  /// A JSON file of doc comments for the generated icons, keyed by icon name
+  /// exactly as the code point map is.
+  ///
+  /// Read and never written: what an icon means is the icon set's to say, not
+  /// this tool's to work out.
+  final String? commentsPath;
 
   /// Where a preview image of the generated icons is written, if anywhere.
   final String? previewPath;

@@ -14,7 +14,7 @@ inputs:
     required: true
   output:
     description: The directory the font and everything beside it is written to.
-    default: build/icons
+    default: '.'
   family:
     description: >-
       The font family name, which also names the generated font file. Defaults
@@ -66,8 +66,14 @@ inputs:
       means adding or removing icons never moves the others, which would
       silently change what an already published application draws.
     default: ''
+  comments:
+    description: >-
+      A JSON file of doc comments for the generated icons, keyed by icon name
+      exactly as codepoints is. Each becomes the summary line of its member,
+      above the line naming the source file. Needs class-name.
+    default: ''
 
-  font-version:
+  version:
     description: The version recorded in the font.
     default: '1.000'
   copyright:
@@ -280,7 +286,8 @@ runs:
         CURVE_TOLERANCE: ${{ inputs.curve-tolerance }}
         START_CODEPOINT: ${{ inputs.start-codepoint }}
         CODEPOINTS: ${{ inputs.codepoints }}
-        FONT_VERSION: ${{ inputs.font-version }}
+        COMMENTS: ${{ inputs.comments }}
+        FONT_VERSION: ${{ inputs.version }}
         COPYRIGHT: ${{ inputs.copyright }}
         DESIGNER: ${{ inputs.designer }}
         MANUFACTURER: ${{ inputs.manufacturer }}
@@ -306,9 +313,13 @@ runs:
         # that only describes them has nothing to attach to without one. The
         # generator refuses this too; saying it here names the input the
         # workflow actually wrote.
-        if [ -z "$CLASS_NAME" ] && [ -n "$EXTENSION_NAME" ]; then
-          echo "::error::extension-name: describes the Dart bindings, which are only written when class-name: names a class to put them in."
-          exit 1
+        if [ -z "$CLASS_NAME" ]; then
+          for describes_bindings in \
+              $([ -n "$EXTENSION_NAME" ] && echo extension-name) \
+              $([ -n "$COMMENTS" ] && echo comments); do
+            echo "::error::$describes_bindings: describes the Dart bindings, which are only written when class-name: names a class to put them in."
+            exit 1
+          done
         fi
 
         # The four axes are the ones Flutter's Icon widget has parameters
@@ -336,6 +347,7 @@ runs:
         option --curve-tolerance "$CURVE_TOLERANCE"
         option --start-codepoint "$START_CODEPOINT"
         option --codepoints "$CODEPOINTS"
+        option --comments "$COMMENTS"
         option --font-version "$FONT_VERSION"
         option --copyright "$COPYRIGHT"
         option --designer "$DESIGNER"

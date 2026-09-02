@@ -6,6 +6,7 @@ import 'package:variable_font_generator/src/bindings/flutter_pubspec.dart';
 import 'package:variable_font_generator/src/cli/build_options.dart';
 import 'package:variable_font_generator/src/cli/build_summary.dart';
 import 'package:variable_font_generator/src/cli/codepoint_map.dart';
+import 'package:variable_font_generator/src/cli/icon_comments.dart';
 import 'package:variable_font_generator/src/cli/icon_loader.dart';
 import 'package:variable_font_generator/src/generator/icon_font_generator.dart';
 import 'package:variable_font_generator/src/raster/preview.dart';
@@ -82,6 +83,23 @@ BuildResult runBuild(BuildOptions options, {void Function(String)? log}) {
     ),
     null => FontReference.application(family: options.family),
   };
+  final comments = switch (options.commentsPath) {
+    final path? => parseIconComments(File(path).readAsStringSync()),
+    null => const <String, String>{},
+  };
+  // A comment for an icon that is not here is a rename nobody carried over, or
+  // a typo. Neither is worth failing a build over, and both are worth saying.
+  final named = {for (final icon in icons) icon.name};
+  final unknown = comments.keys.where((name) => !named.contains(name)).toList()
+    ..sort();
+  if (unknown.isNotEmpty) {
+    report(
+      'No icon is called ${unknown.map((name) => '"$name"').join(', ')}, so '
+      '${unknown.length == 1 ? 'that comment' : 'those comments'} went '
+      'nowhere',
+    );
+  }
+
   String? libraryPath;
   String? indexPath;
   if (options.className case final className?) {
@@ -92,6 +110,7 @@ BuildResult runBuild(BuildOptions options, {void Function(String)? log}) {
       axisSet: options.axisSet,
       identifierStyle: options.identifierStyle,
       mirroredInRightToLeft: options.mirroredInRightToLeft,
+      comments: comments,
       sourceDescription:
           '${icons.length} icons from ${p.basename(options.inputDirectory)}',
     );

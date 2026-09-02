@@ -70,6 +70,7 @@ final class FlutterBindingsGenerator {
     this.axisSet = IconAxisSet.material,
     this.identifierStyle = IdentifierStyle.camelCase,
     this.mirroredInRightToLeft = const {},
+    this.comments = const {},
     this.sourceDescription,
   });
 
@@ -112,6 +113,17 @@ final class FlutterBindingsGenerator {
   /// Names are matched as they appear in the source files, before they are
   /// turned into identifiers.
   final Set<String> mirroredInRightToLeft;
+
+  /// What each icon's generated member says about itself, keyed the way
+  /// [mirroredInRightToLeft] is: by the name in the source file.
+  ///
+  /// The comment becomes the summary line of the member's documentation, which
+  /// is what a reader sees first and what tooling shows beside the name. A
+  /// newline in it starts a new line of the comment. An icon with nothing said
+  /// about it keeps the line naming its source file, and so does one with
+  /// something said about it — knowing which file drew an icon is worth a line
+  /// either way.
+  final Map<String, String> comments;
 
   /// A line describing where the icons came from, included in the header.
   final String? sourceDescription;
@@ -225,6 +237,13 @@ final class FlutterBindingsGenerator {
         buffer.writeln();
       }
       final indent = extensionTypeName == null ? '    ' : '      ';
+      if (comments[icon.name] case final comment?) {
+        for (final line in comment.split('\n')) {
+          final text = line.trimRight();
+          buffer.writeln(text.isEmpty ? '  ///' : '  /// $text');
+        }
+        buffer.writeln('  ///');
+      }
       buffer.writeln('  /// The `${icon.name}` icon.');
       if (extensionTypeName case final typeName?) {
         buffer
