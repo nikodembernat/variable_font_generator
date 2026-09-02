@@ -38,20 +38,17 @@ dart run bin/variable_font_generator.dart build ../../my-icons \
 ## In GitHub Actions
 
 This repository is a reusable action. Point it at a directory of SVG files and
-it writes the font, and the Flutter bindings if you want them:
+it writes the font, and the Flutter bindings if you name a class to put them in:
 
 ```yaml
 - uses: nikodembernat/variable-font-generator@master
   id: icons
   with:
     icons: assets/icons
-    output: packages/my_icons
-    family: MyIcons
-    package: my_icons
+    output: packages/my_icons/lib
     class-name: MyIcons
     extension-name: MyIconData
-    pubspec: true
-    index: true
+    package: my_icons
     codepoints: packages/my_icons/codepoints.json
 
 - run: echo "${{ steps.icons.outputs.icon-count }} icons in ${{ steps.icons.outputs.font }}"
@@ -59,53 +56,55 @@ it writes the font, and the Flutter bindings if you want them:
 
 `class-name` names the class holding every icon, and naming one is the whole of
 the request for bindings: leave it out and the font is written on its own, which
-is what a project that is not Flutter's wants. `extension-name` declares an
-extension type wrapping `IconData` for the icons to have, so a signature can ask
-for an icon from this set rather than any icon at all; leave that out and they
-stay plain `IconData`.
+is what a project that is not Flutter's wants. It names the font family and the
+font file too, so a set has one name rather than two that have to be kept in
+step.
 
-The action runs a compiled binary. Pinned to a version tag it takes the one
-published with that release; pinned to anything else — a branch, a commit, a
-fork, a `uses: ./` — it compiles the generator from its own checkout and caches
-the result against the hash of that source, because only a tag says which
-published binary matches the source being run. Either way there is nothing to
-install in the workflow.
+`extension-name` declares an extension type wrapping `IconData` for the icons to
+have, so a signature can ask for an icon from this set rather than any icon at
+all; leave it out and they stay plain `IconData`.
 
-So `@master` always works, and always compiles; `@v0.2.0` fixes the version and
-downloads.
+`package` fills in `fontPackage` on every `IconData` and does nothing else.
+Where the files go is `output`'s business — which is why the example points it
+at `lib/`, the only part of a package other projects can reach.
+
+Fixed rather than asked about: identifiers are camel case, the icon directory is
+searched recursively, and the timestamp in the font is pinned, so that rebuilding
+unchanged icons produces identical bytes and no diff. The command line has
+options for all three, and for an index library, a pubspec and a preview sheet.
+
+The action runs a compiled binary, taking the one published with the newest
+release. When there is none to take — nothing released yet, a fork, a `uses:
+./` — it compiles the generator from its own checkout and caches the result
+against the hash of that source. Either way there is nothing to install in the
+workflow.
 
 ### Inputs
 
-Every option of the command line, named the same way, except that there is no
-`--no-bindings` to pass: leaving `class-name` out says it. The ones most builds
-touch:
+Named the way the command line names them.
 
 | input | | |
 | --- | --- | --- |
-| `icons` | **required** | the directory of SVG files |
-| `output` | `build/icons` | where everything is written |
-| `family` | `CustomIcons` | the font family name |
-| `class-name` | — | the class to hold the icons, such as `LucideIcons`. Naming one asks for the bindings |
+| `icons` | **required** | the directory of SVG files, searched recursively |
+| `output` | `build/icons` | where the font and the bindings are written |
+| `class-name` | — | the class to hold the icons, such as `LucideIcons`. Naming one asks for the bindings, and names the font |
 | `extension-name` | — | an extension type over `IconData`, such as `LucideIconData`. Needs `class-name` |
-| `package` | — | the Flutter package the font ships in |
-| `index` | `false` | also list every icon by name in a second library |
-| `pubspec` | `false` | write a `pubspec.yaml` declaring the font |
+| `package` | — | the package named in `fontPackage` on every icon |
 | `codepoints` | — | a JSON file remembering each icon's code point |
 | `axes` | `FILL,wght,GRAD,opsz` | which variation axes to offer |
-| `preview` | — | write a PNG contact sheet |
-| `version` | the action's own | which build of the generator to run |
+| `mirror-rtl` | — | icons to flip in right-to-left layouts |
 
-`naming`, `library`, `mirror-rtl`, `recursive`, `reproducible`, `units-per-em`,
-`curve-tolerance`, `start-codepoint`, `font-version`, `copyright`, `designer`,
-`manufacturer`, `license`, `license-url`, `vendor-id`, `working-directory` and
-`dart-sdk` are there too; [`action.yml`](action.yml) describes each one.
+`units-per-em`, `curve-tolerance` and `start-codepoint` shape the font, and
+`font-version`, `copyright`, `designer`, `manufacturer`, `license`,
+`license-url` and `vendor-id` are the metadata stored in it;
+[`action.yml`](action.yml) describes each one.
 
 ### Outputs
 
-`font`, `bindings`, `index`, `pubspec`, `codepoints` and `preview` are the paths
-of what was written, empty for anything that was not. `icon-count` and
-`font-bytes` describe the font, and `binary` is the generator itself, for a
-later step that wants to call it directly.
+`font`, `bindings` and `codepoints` are the paths of what was written, and
+`bindings` is empty when no class was named. `icon-count` and `font-bytes`
+describe the font, and `binary` is the generator itself, for a later step that
+wants to call it directly.
 
 ### Committing the result back
 
@@ -116,11 +115,9 @@ date rather than asking a person to remember:
 - uses: nikodembernat/variable-font-generator@master
   with:
     icons: assets/icons
-    output: packages/my_icons
-    family: MyIcons
-    package: my_icons
+    output: packages/my_icons/lib
     class-name: MyIcons
-    pubspec: true
+    package: my_icons
     codepoints: packages/my_icons/codepoints.json
 
 - uses: peter-evans/create-pull-request@v7

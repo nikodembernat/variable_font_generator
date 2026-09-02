@@ -31,7 +31,7 @@ void main() {
     built = runBuild(
       BuildOptions(
         inputDirectory: fixtureDirectory,
-        outputDirectory: temporary.path,
+        outputDirectory: p.join(temporary.path, 'lib'),
         family: 'LucideVariable',
         className: 'LucideIcons',
         extensionTypeName: 'LucideIconData',

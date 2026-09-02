@@ -47,15 +47,10 @@ jobs:
         with:
           icons: build/lucide/icons
           output: build/full
-          family: LucideVariable
           class-name: LucideIcons
           extension-name: LucideIconData
           package: lucide_icons
-          index: true
-          pubspec: true
           codepoints: build/full/codepoints.json
-          preview: build/full/preview.png
-          version: source
 
       - name: verify it
         run: |
@@ -68,8 +63,6 @@ jobs:
         with:
           name: lucide-variable-font
           path: |
-            build/full/lib/fonts/LucideVariable.ttf
-            build/full/lib/lucide_icons.dart
-            build/full/lib/lucide_icons_index.dart
+            build/full/fonts/LucideIcons.ttf
+            build/full/lucide_icons.dart
             build/full/codepoints.json
-            build/full/preview.png

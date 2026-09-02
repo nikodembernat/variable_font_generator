@@ -12,6 +12,11 @@
   rather than being emitted as Dart that will not compile.
 - The repository is now a reusable GitHub action, and publishes the generator
   as a compiled executable for Linux, macOS and Windows.
+- **Breaking**: `--package` no longer moves anything. It names the package in
+  `fontPackage` on every icon, and `--pubspec` — which is what declares the
+  output directory to be a package — is now what puts the font under `lib/`.
+  A build that wants the package layout without a generated pubspec can point
+  `--output` at the `lib/` directory itself.
 - **Breaking**: `BuildResult.libraryPath` is nullable, because a build without
   bindings writes no library.
 

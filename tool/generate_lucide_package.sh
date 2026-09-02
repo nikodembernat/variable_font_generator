@@ -9,7 +9,7 @@ cd "$(dirname "$0")/.."
 
 dart run packages/variable_font_generator/bin/variable_font_generator.dart build \
   packages/variable_font_generator/test/fixtures/lucide \
-  --output packages/lucide_variable_icons \
+  --output packages/lucide_variable_icons/lib \
   --family LucideVariable \
   --package lucide_variable_icons \
   --class-name LucideIcons \

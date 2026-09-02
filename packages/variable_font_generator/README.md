@@ -78,9 +78,14 @@ packages/my_icons/
 
 `--no-bindings` writes the font alone, for a project that is not Flutter's.
 
-Drop `--package` and `--pubspec` to build for an application's own `assets/`
-directory instead; the generated `IconData` values then leave `fontPackage`
-unset, which is what a font declared in the application's own pubspec needs.
+Two things are being asked for there, and they are separate. `--pubspec` says
+the output directory is a package, which is what puts the font under `lib/` —
+the only part of a package other projects can reach. `--package` says who the
+font belongs to, and only fills in `fontPackage` on every `IconData`, so that
+Flutter looks the family up as `packages/my_icons/MyIcons`. Drop both to build
+for an application's own `assets/` directory: the files stay where `--output`
+put them, and `fontPackage` is left unset, which is what a font declared in the
+application's own pubspec needs.
 
 ### A type of your own for the icons
 
@@ -133,7 +138,7 @@ silently changes what an already-published build draws.
 --no-bindings       Write the font alone, without the Dart bindings.
 --class-name        The generated Dart class.               (the family name)
 --extension-name    An extension type over IconData to give the icons.
---package           The Flutter package the font ships in.
+--package           Names the package in fontPackage on every icon.
 --library           File name of the generated library.
 --naming            camel | snake                           (camel)
 --axes              Which of FILL, wght, GRAD, opsz, wdth to offer.
@@ -146,7 +151,8 @@ silently changes what an already-published build draws.
 --mirror-rtl        Icons to flip in right-to-left layouts.
 --preview           Write a PNG contact sheet of the result.
 --summary           Write a key=value list of everything produced.
---pubspec           Write a pubspec declaring the font. Needs --package.
+--pubspec           Make the output a package: a pubspec, and the font under
+                    lib/. Needs --package.
 --recursive, -r     Search sub directories for SVG files.
 --font-version --copyright --designer --manufacturer --license --license-url
 --vendor-id         Metadata stored in the font.

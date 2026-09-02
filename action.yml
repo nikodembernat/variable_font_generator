@@ -15,15 +15,14 @@ inputs:
   output:
     description: The directory the font and everything beside it is written to.
     default: build/icons
-  family:
-    description: The font family name. Also names the generated font file.
-    default: CustomIcons
-
   class-name:
     description: >-
       The Dart class to hold every icon, such as LucideIcons. Naming one is
       what asks for the Flutter bindings; leave it out and the font is written
-      on its own, which is what a project that is not Flutter's wants.
+      on its own, which is what a project that is not Flutter's wants. It
+      names the font family and the font file too, so that a set has one name
+      rather than two that have to be kept in step. Without it the family is
+      CustomIcons.
     default: ''
   extension-name:
     description: >-
@@ -35,29 +34,11 @@ inputs:
     default: ''
   package:
     description: >-
-      The Flutter package the font ships in. Setting it writes a package
-      layout with the font under lib/, and fills in fontPackage on every
-      generated IconData.
+      The Flutter package the font ships in. It fills in fontPackage on every
+      generated IconData, so that Flutter looks the family up as
+      packages/<package>/<family>, and does nothing else — where the files go
+      is what output says.
     default: ''
-  library:
-    description: >-
-      The file name of the generated Dart library. Defaults to the package
-      name, or icons.dart.
-    default: ''
-  naming:
-    description: >-
-      How icon names become Dart identifiers: camel for arrowRight, snake for
-      arrow_right.
-    default: camel
-  index:
-    description: >-
-      Also write a second library listing every icon by name. Keep it out of
-      an application that only draws a few icons: naming them all is what stops
-      the release build dropping the rest.
-    default: 'false'
-  pubspec:
-    description: Write a pubspec.yaml declaring the font. Needs package.
-    default: 'false'
   mirror-rtl:
     description: >-
       Comma separated icon names that should be flipped in right-to-left
@@ -108,41 +89,6 @@ inputs:
     description: Four character foundry identifier stored in OS/2.
     default: NONE
 
-  preview:
-    description: >-
-      Where to write a PNG contact sheet showing the icons at every axis
-      extreme. Empty writes none.
-    default: ''
-  recursive:
-    description: Search sub directories of the icon directory for SVG files.
-    default: 'false'
-  reproducible:
-    description: >-
-      Record a fixed timestamp in the font, so that two builds of the same
-      icons produce identical bytes.
-    default: 'true'
-
-  working-directory:
-    description: >-
-      The directory every other path is relative to. Defaults to the workspace
-      root.
-    default: '.'
-  version:
-    description: >-
-      Which build of the generator to run. Empty downloads the release this
-      action is pinned to, and compiles the generator from the action's own
-      source when there is no such release — which is also what happens when
-      the action is used from a branch or by its path, since only a version tag
-      says which binary matches this source. A tag such as v1.2.3 insists on
-      that release, "latest" takes the newest one, and "source" always
-      compiles.
-    default: ''
-  dart-sdk:
-    description: >-
-      The Dart SDK used when the generator has to be compiled rather than
-      downloaded.
-    default: stable
-
 outputs:
   font:
     description: The path of the generated font file.
@@ -150,18 +96,9 @@ outputs:
   bindings:
     description: The path of the generated Dart library, if one was written.
     value: ${{ steps.build.outputs.bindings }}
-  index:
-    description: The path of the generated index library, if one was written.
-    value: ${{ steps.build.outputs.index }}
-  pubspec:
-    description: The path of the generated pubspec, if one was written.
-    value: ${{ steps.build.outputs.pubspec }}
   codepoints:
     description: The path of the code point map, if one was kept.
     value: ${{ steps.build.outputs.codepoints }}
-  preview:
-    description: The path of the preview image, if one was written.
-    value: ${{ steps.build.outputs.preview }}
   icon-count:
     description: How many icons went into the font.
     value: ${{ steps.build.outputs.icon-count }}
@@ -184,8 +121,6 @@ runs:
       shell: bash
       working-directory: ${{ github.action_path }}
       env:
-        INPUT_VERSION: ${{ inputs.version }}
-        ACTION_REF: ${{ github.action_ref }}
         ACTION_REPOSITORY: ${{ github.action_repository }}
       run: |
         set -euo pipefail
@@ -238,30 +173,14 @@ runs:
           } | checksum | cut -c1-16
         )
 
-        # Only a version tag says which published binary matches the source
-        # sitting here, so that is the only ref a download is inferred from.
-        # A branch, a commit, or a path compiles instead, which cannot be out
-        # of step with the action it is being run by.
-        tag=''
-        required=false
-        case "$INPUT_VERSION" in
-          source) ;;
-          '')
-            if [ -n "$ACTION_REPOSITORY" ]; then
-              case "$ACTION_REF" in
-                v[0-9]*) tag="$ACTION_REF" ;;
-              esac
-            fi
-            ;;
-          *)
-            if [ -z "$ACTION_REPOSITORY" ]; then
-              echo "::error::version: $INPUT_VERSION asks for a release, but this action is being used by its path, which has none. Use version: source."
-              exit 1
-            fi
-            tag="$INPUT_VERSION"
-            required=true
-            ;;
-        esac
+        # The newest release is what runs, whatever ref this action was used
+        # by. An action used by its path has no release to take from, so its
+        # own source is compiled instead — as it is when nothing is published
+        # yet, or when a fork has no releases of its own.
+        release=false
+        if [ -n "$ACTION_REPOSITORY" ]; then
+          release=true
+        fi
 
         {
           echo "platform=$os-$arch"
@@ -269,44 +188,31 @@ runs:
           echo "binary=$directory/variable_font_generator$suffix"
           echo "summary=$directory/summary.txt"
           echo "source-hash=$source_hash"
-          echo "tag=$tag"
-          echo "required=$required"
+          echo "release=$release"
         } >> "$GITHUB_OUTPUT"
 
     - id: download
-      if: steps.plan.outputs.tag != ''
+      if: steps.plan.outputs.release == 'true'
       shell: bash
       env:
         REPOSITORY: ${{ github.action_repository }}
-        TAG: ${{ steps.plan.outputs.tag }}
         ASSET: ${{ steps.plan.outputs.asset }}
         BINARY: ${{ steps.plan.outputs.binary }}
-        REQUIRED: ${{ steps.plan.outputs.required }}
       run: |
         set -euo pipefail
 
-        if [ "$TAG" = latest ]; then
-          url="https://github.com/$REPOSITORY/releases/latest/download/$ASSET"
-        else
-          url="https://github.com/$REPOSITORY/releases/download/$TAG/$ASSET"
-        fi
+        url="https://github.com/$REPOSITORY/releases/latest/download/$ASSET"
 
+        # Quiet, because a repository with nothing published yet is a case
+        # this handles rather than one it complains about.
         fetch() {
-          curl --fail --location --silent --show-error \
+          curl --fail --location --silent \
                --retry 3 --retry-delay 2 --retry-connrefused \
                --output "$2" "$1"
         }
 
-        # A download that is only worth trying should not fill the log with
-        # curl's complaint when there is nothing published yet.
-        complaint=/dev/stderr
-        if [ "$REQUIRED" != true ]; then
-          complaint=/dev/null
-        fi
-
         installed=false
-        if fetch "$url" "$BINARY.download" 2> "$complaint" \
-            && fetch "$url.sha256" "$BINARY.sha256" 2> "$complaint"; then
+        if fetch "$url" "$BINARY.download" && fetch "$url.sha256" "$BINARY.sha256"; then
           expected=$(tr -d '[:space:]' < "$BINARY.sha256")
           if command -v sha256sum > /dev/null 2>&1; then
             actual=$(sha256sum "$BINARY.download" | cut -d' ' -f1)
@@ -320,14 +226,10 @@ runs:
           mv "$BINARY.download" "$BINARY"
           chmod +x "$BINARY"
           installed=true
-          echo "Using $ASSET from $url"
+          echo "Using $ASSET from the latest release."
         else
           rm -f "$BINARY.download" "$BINARY.sha256"
-          if [ "$REQUIRED" = true ]; then
-            echo "::error::No $ASSET published at $url."
-            exit 1
-          fi
-          echo "No $ASSET published at $url; compiling the generator instead."
+          echo "The latest release has no $ASSET; compiling the generator instead."
         fi
 
         echo "installed=$installed" >> "$GITHUB_OUTPUT"
@@ -346,7 +248,7 @@ runs:
         steps.cache.outputs.cache-hit != 'true'
       uses: dart-lang/setup-dart@v1
       with:
-        sdk: ${{ inputs.dart-sdk }}
+        sdk: stable
         # The analyzer problem matcher it registers by default resolves its
         # file against the workspace rather than against the action, which is
         # an error when the action is nested inside this one. Nothing here
@@ -364,20 +266,14 @@ runs:
 
     - id: build
       shell: bash
-      working-directory: ${{ inputs.working-directory }}
       env:
         BINARY: ${{ steps.plan.outputs.binary }}
         SUMMARY: ${{ steps.plan.outputs.summary }}
         ICONS: ${{ inputs.icons }}
         OUTPUT: ${{ inputs.output }}
-        FAMILY: ${{ inputs.family }}
         CLASS_NAME: ${{ inputs.class-name }}
         EXTENSION_NAME: ${{ inputs.extension-name }}
         PACKAGE: ${{ inputs.package }}
-        LIBRARY: ${{ inputs.library }}
-        NAMING: ${{ inputs.naming }}
-        INDEX: ${{ inputs.index }}
-        PUBSPEC: ${{ inputs.pubspec }}
         MIRROR_RTL: ${{ inputs.mirror-rtl }}
         AXES: ${{ inputs.axes }}
         UNITS_PER_EM: ${{ inputs.units-per-em }}
@@ -391,9 +287,6 @@ runs:
         LICENSE: ${{ inputs.license }}
         LICENSE_URL: ${{ inputs.license-url }}
         VENDOR_ID: ${{ inputs.vendor-id }}
-        PREVIEW: ${{ inputs.preview }}
-        RECURSIVE: ${{ inputs.recursive }}
-        REPRODUCIBLE: ${{ inputs.reproducible }}
       run: |
         set -euo pipefail
 
@@ -404,28 +297,20 @@ runs:
           echo "::error::icons: is required. Give it the directory holding the SVG files."
           exit 1
         fi
-        if [ -z "$OUTPUT" ] || [ -z "$FAMILY" ]; then
-          echo "::error::output: and family: cannot be empty."
+        if [ -z "$OUTPUT" ]; then
+          echo "::error::output: cannot be empty."
           exit 1
         fi
 
-        # An input is a string whatever it looks like, so the flags are read
-        # the way a person would write them rather than only as `true`.
-        enabled() {
-          case "$(echo "$1" | tr '[:upper:]' '[:lower:]')" in
-            true|yes|on|1) return 0 ;;
-            *) return 1 ;;
-          esac
-        }
-
-        arguments=(build "$ICONS" --output "$OUTPUT" --family "$FAMILY")
+        # Sub directories are searched, so that pointing this at a tree of
+        # icons finds them rather than reporting that there are none.
+        arguments=(build "$ICONS" --output "$OUTPUT" --recursive)
 
         option() {
           if [ -n "$2" ]; then
             arguments+=("$1" "$2")
           fi
         }
-        option --naming "$NAMING"
         option --axes "$AXES"
         option --units-per-em "$UNITS_PER_EM"
         option --curve-tolerance "$CURVE_TOLERANCE"
@@ -439,41 +324,19 @@ runs:
         option --license-url "$LICENSE_URL"
         option --vendor-id "$VENDOR_ID"
         option --mirror-rtl "$MIRROR_RTL"
-        option --preview "$PREVIEW"
         option --package "$PACKAGE"
 
-        # Naming a class is the whole of the request for bindings. Anything
-        # else that describes them has nothing to attach to without one.
+        # Naming a class is the whole of the request for bindings, and the
+        # class names the font as well, so that a set has one name rather than
+        # two that have to be kept in step.
         if [ -n "$CLASS_NAME" ]; then
-          arguments+=(--class-name "$CLASS_NAME")
+          arguments+=(--family "$CLASS_NAME" --class-name "$CLASS_NAME")
           option --extension-name "$EXTENSION_NAME"
-          option --library "$LIBRARY"
-          if enabled "$INDEX"; then
-            arguments+=(--index)
-          fi
+        elif [ -n "$EXTENSION_NAME" ]; then
+          echo "::error::extension-name: describes the Dart bindings, which are only written when class-name: names a class to put them in."
+          exit 1
         else
-          describes_bindings=''
-          if [ -n "$EXTENSION_NAME" ]; then
-            describes_bindings=extension-name
-          elif [ -n "$LIBRARY" ]; then
-            describes_bindings=library
-          elif enabled "$INDEX"; then
-            describes_bindings=index
-          fi
-          if [ -n "$describes_bindings" ]; then
-            echo "::error::$describes_bindings: describes the Dart bindings, which are only written when class-name: names a class to put them in."
-            exit 1
-          fi
           arguments+=(--no-bindings)
-        fi
-        if enabled "$PUBSPEC"; then
-          arguments+=(--pubspec)
-        fi
-        if enabled "$RECURSIVE"; then
-          arguments+=(--recursive)
-        fi
-        if ! enabled "$REPRODUCIBLE"; then
-          arguments+=(--no-reproducible)
         fi
 
         "$BINARY" "${arguments[@]}" --summary "$SUMMARY"

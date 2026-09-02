@@ -66,9 +66,9 @@ final class BuildOptions {
   /// The Flutter package the font ships in, or `null` for an
   /// application-local font.
   ///
-  /// When set, a complete package layout is written: the font under `lib/`,
-  /// where other projects can reach it, and `fontPackage` filled in on every
-  /// generated `IconData`.
+  /// It fills in `fontPackage` on every generated `IconData`, and does nothing
+  /// else. Who the font belongs to and where its files are written are
+  /// separate questions; [writePubspec] answers the second.
   final String? packageName;
 
   /// The axes the font will offer.
@@ -92,8 +92,18 @@ final class BuildOptions {
   /// Whether sub directories of the input are searched too.
   final bool recursive;
 
-  /// Whether a `pubspec.yaml` is written alongside the output.
+  /// Whether a `pubspec.yaml` is written alongside the output, making the
+  /// output directory a Flutter package.
   final bool writePubspec;
+
+  /// Whether the output is laid out as a Flutter package, with everything
+  /// under `lib/`.
+  ///
+  /// A package can only expose what is under `lib/`, so writing a pubspec —
+  /// which is what declares the output directory to be a package — is what
+  /// decides this. A build that writes no pubspec leaves its files exactly
+  /// where it was asked to put them.
+  bool get isPackage => writePubspec;
 
   /// Where the code point assignments are remembered between builds.
   final String? codePointMapPath;
@@ -122,11 +132,11 @@ final class BuildOptions {
 
   /// Where the font file goes, relative to [outputDirectory].
   String get fontRelativePath =>
-      packageName == null ? 'fonts/$family.ttf' : 'lib/fonts/$family.ttf';
+      isPackage ? 'lib/fonts/$family.ttf' : 'fonts/$family.ttf';
 
   /// Where the Dart library goes, relative to [outputDirectory].
   String get libraryRelativePath =>
-      packageName == null ? libraryFileName : 'lib/$libraryFileName';
+      isPackage ? 'lib/$libraryFileName' : libraryFileName;
 
   /// The file name of the generated index library.
   String get indexFileName =>
@@ -134,7 +144,7 @@ final class BuildOptions {
 
   /// Where the index library goes, relative to [outputDirectory].
   String get indexRelativePath =>
-      packageName == null ? indexFileName : 'lib/$indexFileName';
+      isPackage ? 'lib/$indexFileName' : indexFileName;
 
   @override
   String toString() => 'BuildOptions($inputDirectory -> $outputDirectory)';

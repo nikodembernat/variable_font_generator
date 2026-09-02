@@ -111,25 +111,17 @@ jobs:
         with:
           icons: packages/variable_font_generator/test/fixtures/lucide
           output: build/action
-          family: ActionIcons
           class-name: ActionIcons
           extension-name: ActionIconData
           package: action_icons
-          index: true
-          pubspec: true
           codepoints: build/action/codepoints.json
-          preview: build/action/preview.png
           mirror-rtl: arrow-right,navigation
-          version: source
 
       - name: check what it wrote
         env:
           FONT: ${{ steps.icons.outputs.font }}
           BINDINGS: ${{ steps.icons.outputs.bindings }}
-          INDEX: ${{ steps.icons.outputs.index }}
-          PUBSPEC: ${{ steps.icons.outputs.pubspec }}
           CODEPOINTS: ${{ steps.icons.outputs.codepoints }}
-          PREVIEW: ${{ steps.icons.outputs.preview }}
           ICON_COUNT: ${{ steps.icons.outputs.icon-count }}
           FONT_BYTES: ${{ steps.icons.outputs.font-bytes }}
         run: |
@@ -137,30 +129,29 @@ jobs:
           # runner and wrong for the shell reading them here.
           FONT=${FONT//\\//}
           BINDINGS=${BINDINGS//\\//}
-          INDEX=${INDEX//\\//}
-          PUBSPEC=${PUBSPEC//\\//}
           CODEPOINTS=${CODEPOINTS//\\//}
-          PREVIEW=${PREVIEW//\\//}
 
-          for path in "$FONT" "$BINDINGS" "$INDEX" "$PUBSPEC" "$CODEPOINTS" "$PREVIEW"; do
+          for path in "$FONT" "$BINDINGS" "$CODEPOINTS"; do
             test -s "$path" || { echo "::error::$path is missing or empty"; exit 1; }
           done
 
           test "$ICON_COUNT" = 45
           test "$FONT_BYTES" -gt 100000
 
-          # A package build puts the font where other projects can reach it,
-          # and every icon has to name that package for Flutter to find it.
-          case "$FONT" in
-            */lib/fonts/ActionIcons.ttf) ;;
-            *) echo "::error::the font landed at $FONT"; exit 1 ;;
-          esac
+          # The class names the font, and naming a package moves nothing:
+          # everything sits where output said, not under a lib/ nobody asked
+          # for.
+          test "$FONT" = build/action/fonts/ActionIcons.ttf
+          test ! -e build/action/lib
+          test ! -e build/action/pubspec.yaml
+
           grep -q "extension type const ActionIconData" "$BINDINGS"
           grep -q "abstract final class ActionIcons" "$BINDINGS"
+          grep -q "fontFamily: 'ActionIcons'" "$BINDINGS"
           grep -q "fontPackage: 'action_icons'" "$BINDINGS"
           grep -q "matchTextDirection: true" "$BINDINGS"
           grep -c "static const ActionIconData" "$BINDINGS" | grep -qx 45
-          grep -q "family: ActionIcons" "$PUBSPEC"
+
           # A TrueType outline font starts with the version 1.0 sfnt tag.
           head -c 4 "$FONT" | od -An -tx1 | tr -d ' \n' | grep -qx 00010000
 
@@ -171,8 +162,6 @@ jobs:
         with:
           icons: packages/variable_font_generator/test/fixtures/lucide
           output: build/font-only
-          family: FontOnly
-          version: source
 
       - name: check it wrote a font and nothing else
         env:
@@ -181,7 +170,7 @@ jobs:
         run: |
           test -s "${FONT//\\//}"
           test -z "$BINDINGS"
-          test ! -e build/font-only/icons.dart
+          test -z "$(find build/font-only -name '*.dart')"
 
   # Everything above checks the generator against its own idea of what a font
   # is. This job checks it against everyone else's: the OpenType Sanitizer
