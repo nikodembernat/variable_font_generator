@@ -2,10 +2,10 @@ import 'package:meta/meta.dart';
 import 'package:variable_font_generator/src/geometry/outline.dart';
 import 'package:variable_font_generator/src/geometry/vec2.dart';
 
-/// A single outline point expressed as an affine function of the stroke's half
+/// A single outline point expressed as an affine function of the stroke's
 /// width.
 ///
-/// The position of the point is `base + direction * halfWidth`. Keeping every
+/// The position of the point is `base + direction * strokeScale`. Keeping every
 /// point in this form is what lets a single icon be re-stroked at any weight
 /// while producing outlines that are point-for-point identical in structure,
 /// which is the precondition for storing the difference between them as `gvar`
@@ -29,8 +29,8 @@ final class StrokePointTemplate {
   /// Whether the point lies on the curve. See [OutlinePoint.onCurve].
   final bool onCurve;
 
-  /// The position of this point at [halfWidth].
-  Vec2 at(double halfWidth) => base + direction * halfWidth;
+  /// The position of this point at [strokeScale].
+  Vec2 at(double strokeScale) => base + direction * strokeScale;
 
   @override
   String toString() => 'StrokePointTemplate($base + $direction * w)';
@@ -57,15 +57,15 @@ final class StrokeContourTemplate {
   /// Whether filling closes this contour's hole.
   bool get collapsesWhenFilled => collapseTarget != null;
 
-  /// Evaluates this contour at [halfWidth] and [fill].
-  Contour evaluate({required double halfWidth, required double fill}) {
+  /// Evaluates this contour at [strokeScale] and [fill].
+  Contour evaluate({required double strokeScale, required double fill}) {
     final target = collapseTarget;
     return Contour([
       for (final point in points)
         OutlinePoint(
           target == null || fill == 0
-              ? point.at(halfWidth)
-              : point.at(halfWidth).lerp(target, fill),
+              ? point.at(strokeScale)
+              : point.at(strokeScale).lerp(target, fill),
           onCurve: point.onCurve,
         ),
     ]);
@@ -106,12 +106,17 @@ final class StrokeTemplate {
   /// Whether this template draws nothing.
   bool get isEmpty => contours.isEmpty;
 
-  /// Builds the outline for the given [halfWidth] and [fill].
+  /// Builds the outline for the given [strokeScale] and [fill].
+  ///
+  /// What a stroke scale of one means depends on who built the template: a
+  /// [StrokeTemplate] straight out of the stroker measures it in source units
+  /// of half width, while one from an icon builder has been rescaled so that
+  /// one reproduces the artwork's own stroke widths.
   ///
   /// [fill] runs from zero (holes fully open) to one (holes fully closed).
-  Outline evaluate({required double halfWidth, double fill = 0}) => Outline([
+  Outline evaluate({required double strokeScale, double fill = 0}) => Outline([
     for (final contour in contours)
-      contour.evaluate(halfWidth: halfWidth, fill: fill),
+      contour.evaluate(strokeScale: strokeScale, fill: fill),
   ]);
 
   /// Returns a copy with [transform] applied to every base point, collapse

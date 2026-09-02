@@ -153,6 +153,16 @@ final class Outline {
   Outline transformed(Vec2 Function(Vec2 point) transform) =>
       Outline([for (final contour in contours) contour.transformed(transform)]);
 
+  /// Returns a copy with every coordinate rounded to a whole design unit.
+  ///
+  /// Rounding has to happen before variation deltas are computed, not after:
+  /// `glyf` stores whole units and `gvar` stores whole-unit differences, so the
+  /// default outline plus its deltas can only reproduce a master exactly if
+  /// that master was rounded first.
+  Outline get rounded => transformed(
+    (point) => Vec2(point.x.roundToDouble(), point.y.roundToDouble()),
+  );
+
   /// The tightest axis-aligned box containing every point, or `null` when this
   /// outline is empty.
   ///
