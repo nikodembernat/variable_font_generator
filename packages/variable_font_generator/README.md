@@ -46,6 +46,13 @@ Or add it as a dev dependency and run it with `dart run`:
 dart pub add --dev variable_font_generator
 ```
 
+Or take a compiled executable, which needs no Dart SDK at all. Every release
+carries one for Linux, macOS and Windows; `tool/build_binary.sh` in the
+repository builds one from source in a few seconds.
+
+In GitHub Actions there is nothing to install: the repository is a reusable
+action. See [its README](https://github.com/nikodembernat/variable_font_generator#in-github-actions).
+
 ## Build a font
 
 ```sh

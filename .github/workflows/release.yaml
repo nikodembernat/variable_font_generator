@@ -1,0 +1,169 @@
+name: release
+
+# Publishes the generator as a single self-contained executable for every
+# platform the reusable action can run on, so that using the action costs a
+# download rather than a compile.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: >-
+          Build every binary and keep it as an artifact without publishing a
+          release.
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # A tag should already be sitting on a commit the suite has passed, but a
+  # binary is the one artefact nobody runs the tests against afterwards.
+  check:
+    name: tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/variable_font_generator
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - run: dart pub get
+      - run: dart analyze --fatal-infos
+      - run: dart test --reporter=failures-only
+
+      # A binary that reports a different version from the tag it was published
+      # under is a thing nobody notices until they are trying to work out which
+      # build they have.
+      - name: the tag says what the package says
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          declared=$(grep -m1 '^version:' pubspec.yaml | cut -d' ' -f2)
+          reported=$(dart run bin/variable_font_generator.dart --version |
+            cut -d' ' -f2)
+          echo "tag $TAG, pubspec $declared, binary $reported"
+          test "v$declared" = "$TAG"
+          test "$reported" = "$declared"
+
+  binaries:
+    name: ${{ matrix.platform }}
+    needs: check
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x64
+            runner: ubuntu-latest
+            os: linux
+            arch: x64
+            native: true
+          # The only platforms `dart compile exe` can cross compile to are the
+          # other Linux architectures, from any host. Every other target needs
+          # a runner of its own, which is what the three rows below are.
+          - platform: linux-arm64
+            runner: ubuntu-latest
+            os: linux
+            arch: arm64
+            native: false
+          - platform: macos-arm64
+            runner: macos-latest
+            os: macos
+            arch: arm64
+            native: true
+          # GitHub retired macos-13 at the end of 2025 and will drop Intel
+          # macOS entirely in 2027, at which point this row goes.
+          - platform: macos-x64
+            runner: macos-15-intel
+            os: macos
+            arch: x64
+            native: true
+          - platform: windows-x64
+            runner: windows-latest
+            os: windows
+            arch: x64
+            suffix: .exe
+            native: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: compile
+        env:
+          ASSET: variable_font_generator-${{ matrix.platform }}${{ matrix.suffix }}
+        run: |
+          ./tool/build_binary.sh \
+            --output "dist/$ASSET" \
+            --target-os '${{ matrix.os }}' \
+            --target-arch '${{ matrix.arch }}'
+
+      - name: check it runs
+        if: matrix.native
+        env:
+          ASSET: variable_font_generator-${{ matrix.platform }}${{ matrix.suffix }}
+        run: |
+          "./dist/$ASSET" --version
+          "./dist/$ASSET" build packages/variable_font_generator/test/fixtures/lucide \
+            --output build/smoke --family SmokeIcons --summary build/smoke/summary.txt
+          cat build/smoke/summary.txt
+          grep -q '^icon-count=45$' build/smoke/summary.txt
+
+      - name: checksum
+        env:
+          ASSET: variable_font_generator-${{ matrix.platform }}${{ matrix.suffix }}
+        run: |
+          cd dist
+          if command -v sha256sum > /dev/null 2>&1; then
+            sha256sum "$ASSET" | cut -d' ' -f1 > "$ASSET.sha256"
+          else
+            shasum -a 256 "$ASSET" | cut -d' ' -f1 > "$ASSET.sha256"
+          fi
+          cat "$ASSET.sha256"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.platform }}
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    name: publish the release
+    needs: binaries
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: binary-*
+          merge-multiple: true
+
+      - name: attach the binaries to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          ls -l dist
+          # Re-running a release should replace what it published rather than
+          # fail, so an existing release is topped up instead of created.
+          if gh release view "$TAG" --repo "$REPOSITORY" > /dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --repo "$REPOSITORY" --clobber
+          else
+            gh release create "$TAG" dist/* \
+              --repo "$REPOSITORY" --title "$TAG" --generate-notes
+          fi

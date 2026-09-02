@@ -1,0 +1,466 @@
+name: Variable icon font
+description: >-
+  Build a variable OpenType icon font, and optionally the Flutter bindings for
+  it, from a directory of SVG icons.
+author: Nikodem Bernat
+
+branding:
+  icon: type
+  color: purple
+
+inputs:
+  icons:
+    description: The directory holding the SVG files.
+    required: true
+  output:
+    description: The directory the font and everything beside it is written to.
+    default: build/icons
+  family:
+    description: The font family name. Also names the generated font file.
+    default: CustomIcons
+
+  bindings:
+    description: >-
+      Whether to write the Flutter bindings. Set it to false for a font going
+      somewhere that is not a Flutter project.
+    default: 'true'
+  class-name:
+    description: >-
+      The generated Dart class holding every icon, such as LucideIcons.
+      Defaults to the family name.
+    default: ''
+  extension-name:
+    description: >-
+      Declares an extension type of this name wrapping IconData, such as
+      LucideIconData, and gives every generated icon that type. It lets a
+      signature ask for an icon from this set rather than any icon at all, and
+      costs nothing at run time.
+    default: ''
+  package:
+    description: >-
+      The Flutter package the font ships in. Setting it writes a package
+      layout with the font under lib/, and fills in fontPackage on every
+      generated IconData.
+    default: ''
+  library:
+    description: >-
+      The file name of the generated Dart library. Defaults to the package
+      name, or icons.dart.
+    default: ''
+  naming:
+    description: >-
+      How icon names become Dart identifiers: camel for arrowRight, snake for
+      arrow_right.
+    default: camel
+  index:
+    description: >-
+      Also write a second library listing every icon by name. Keep it out of
+      an application that only draws a few icons: naming them all is what stops
+      the release build dropping the rest.
+    default: 'false'
+  pubspec:
+    description: Write a pubspec.yaml declaring the font. Needs package.
+    default: 'false'
+  mirror-rtl:
+    description: >-
+      Comma separated icon names that should be flipped in right-to-left
+      layouts.
+    default: ''
+
+  axes:
+    description: >-
+      Comma separated variation axes: FILL, wght, GRAD, opsz and wdth.
+    default: FILL,wght,GRAD,opsz
+  units-per-em:
+    description: The design grid resolution of the font.
+    default: '1000'
+  curve-tolerance:
+    description: >-
+      How far, in design units, a curve may deviate from the artwork. Raising
+      it makes a smaller font out of coarser outlines.
+    default: '1'
+  start-codepoint:
+    description: The code point the first icon is placed at.
+    default: '0xE000'
+  codepoints:
+    description: >-
+      A JSON file remembering which code point each icon has. Committing it
+      means adding or removing icons never moves the others, which would
+      silently change what an already published application draws.
+    default: ''
+
+  font-version:
+    description: The version recorded in the font.
+    default: '1.000'
+  copyright:
+    description: Copyright notice stored in the font.
+    default: ''
+  designer:
+    description: Designer credited in the font.
+    default: ''
+  manufacturer:
+    description: Manufacturer credited in the font.
+    default: ''
+  license:
+    description: License description stored in the font.
+    default: ''
+  license-url:
+    description: License URL stored in the font.
+    default: ''
+  vendor-id:
+    description: Four character foundry identifier stored in OS/2.
+    default: NONE
+
+  preview:
+    description: >-
+      Where to write a PNG contact sheet showing the icons at every axis
+      extreme. Empty writes none.
+    default: ''
+  recursive:
+    description: Search sub directories of the icon directory for SVG files.
+    default: 'false'
+  reproducible:
+    description: >-
+      Record a fixed timestamp in the font, so that two builds of the same
+      icons produce identical bytes.
+    default: 'true'
+
+  working-directory:
+    description: >-
+      The directory every other path is relative to. Defaults to the workspace
+      root.
+    default: '.'
+  version:
+    description: >-
+      Which build of the generator to run. Empty downloads the release this
+      action is pinned to, and compiles the generator from the action's own
+      source when there is no such release — which is also what happens when
+      the action is used from a branch or by its path, since only a version tag
+      says which binary matches this source. A tag such as v1.2.3 insists on
+      that release, "latest" takes the newest one, and "source" always
+      compiles.
+    default: ''
+  dart-sdk:
+    description: >-
+      The Dart SDK used when the generator has to be compiled rather than
+      downloaded.
+    default: stable
+
+outputs:
+  font:
+    description: The path of the generated font file.
+    value: ${{ steps.build.outputs.font }}
+  bindings:
+    description: The path of the generated Dart library, if one was written.
+    value: ${{ steps.build.outputs.bindings }}
+  index:
+    description: The path of the generated index library, if one was written.
+    value: ${{ steps.build.outputs.index }}
+  pubspec:
+    description: The path of the generated pubspec, if one was written.
+    value: ${{ steps.build.outputs.pubspec }}
+  codepoints:
+    description: The path of the code point map, if one was kept.
+    value: ${{ steps.build.outputs.codepoints }}
+  preview:
+    description: The path of the preview image, if one was written.
+    value: ${{ steps.build.outputs.preview }}
+  icon-count:
+    description: How many icons went into the font.
+    value: ${{ steps.build.outputs.icon-count }}
+  font-bytes:
+    description: The size of the font file in bytes.
+    value: ${{ steps.build.outputs.font-bytes }}
+  binary:
+    description: >-
+      The generator executable this run used, for a later step that wants to
+      call it directly.
+    value: ${{ steps.plan.outputs.binary }}
+
+runs:
+  using: composite
+  steps:
+    # Everything that has to be decided before any of the conditional steps
+    # can be written down: which binary this runner needs, where it will go,
+    # and whether it is going to be downloaded or compiled.
+    - id: plan
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      env:
+        INPUT_VERSION: ${{ inputs.version }}
+        ACTION_REF: ${{ github.action_ref }}
+        ACTION_REPOSITORY: ${{ github.action_repository }}
+      run: |
+        set -euo pipefail
+
+        case "$RUNNER_OS" in
+          Linux) os=linux ;;
+          macOS) os=macos ;;
+          Windows) os=windows ;;
+          *) echo "::error::Unsupported runner operating system: $RUNNER_OS"; exit 1 ;;
+        esac
+        case "$RUNNER_ARCH" in
+          X64) arch=x64 ;;
+          ARM64) arch=arm64 ;;
+          *) echo "::error::Unsupported runner architecture: $RUNNER_ARCH"; exit 1 ;;
+        esac
+
+        suffix=''
+        if [ "$os" = windows ]; then
+          suffix='.exe'
+        fi
+
+        directory="$RUNNER_TEMP/variable-font-generator"
+        mkdir -p "$directory"
+
+        # The cache key is the source the binary would be compiled from, so a
+        # cached binary is only reused while it still matches that source. It
+        # is what `hashFiles` would give, computed here because the action's
+        # own checkout is outside the workspace that function can see.
+        checksum() {
+          if command -v sha256sum > /dev/null 2>&1; then
+            sha256sum
+          else
+            shasum -a 256
+          fi
+        }
+        sources=$(
+          find packages/variable_font_generator/bin \
+               packages/variable_font_generator/lib \
+               -type f -name '*.dart' | LC_ALL=C sort
+        )
+        source_hash=$(
+          {
+            # The names as well as the contents, so that moving a file counts
+            # as a change even when nothing inside it did.
+            printf '%s\n' "$sources"
+            printf '%s\n' "$sources" | while IFS= read -r file; do
+              cat "$file"
+            done
+            cat packages/variable_font_generator/pubspec.yaml
+          } | checksum | cut -c1-16
+        )
+
+        # Only a version tag says which published binary matches the source
+        # sitting here, so that is the only ref a download is inferred from.
+        # A branch, a commit, or a path compiles instead, which cannot be out
+        # of step with the action it is being run by.
+        tag=''
+        required=false
+        case "$INPUT_VERSION" in
+          source) ;;
+          '')
+            if [ -n "$ACTION_REPOSITORY" ]; then
+              case "$ACTION_REF" in
+                v[0-9]*) tag="$ACTION_REF" ;;
+              esac
+            fi
+            ;;
+          *)
+            if [ -z "$ACTION_REPOSITORY" ]; then
+              echo "::error::version: $INPUT_VERSION asks for a release, but this action is being used by its path, which has none. Use version: source."
+              exit 1
+            fi
+            tag="$INPUT_VERSION"
+            required=true
+            ;;
+        esac
+
+        {
+          echo "platform=$os-$arch"
+          echo "asset=variable_font_generator-$os-$arch$suffix"
+          echo "binary=$directory/variable_font_generator$suffix"
+          echo "summary=$directory/summary.txt"
+          echo "source-hash=$source_hash"
+          echo "tag=$tag"
+          echo "required=$required"
+        } >> "$GITHUB_OUTPUT"
+
+    - id: download
+      if: steps.plan.outputs.tag != ''
+      shell: bash
+      env:
+        REPOSITORY: ${{ github.action_repository }}
+        TAG: ${{ steps.plan.outputs.tag }}
+        ASSET: ${{ steps.plan.outputs.asset }}
+        BINARY: ${{ steps.plan.outputs.binary }}
+        REQUIRED: ${{ steps.plan.outputs.required }}
+      run: |
+        set -euo pipefail
+
+        if [ "$TAG" = latest ]; then
+          url="https://github.com/$REPOSITORY/releases/latest/download/$ASSET"
+        else
+          url="https://github.com/$REPOSITORY/releases/download/$TAG/$ASSET"
+        fi
+
+        fetch() {
+          curl --fail --location --silent --show-error \
+               --retry 3 --retry-delay 2 --retry-connrefused \
+               --output "$2" "$1"
+        }
+
+        # A download that is only worth trying should not fill the log with
+        # curl's complaint when there is nothing published yet.
+        complaint=/dev/stderr
+        if [ "$REQUIRED" != true ]; then
+          complaint=/dev/null
+        fi
+
+        installed=false
+        if fetch "$url" "$BINARY.download" 2> "$complaint" \
+            && fetch "$url.sha256" "$BINARY.sha256" 2> "$complaint"; then
+          expected=$(tr -d '[:space:]' < "$BINARY.sha256")
+          if command -v sha256sum > /dev/null 2>&1; then
+            actual=$(sha256sum "$BINARY.download" | cut -d' ' -f1)
+          else
+            actual=$(shasum -a 256 "$BINARY.download" | cut -d' ' -f1)
+          fi
+          if [ "$expected" != "$actual" ]; then
+            echo "::error::$ASSET does not match its published checksum. Expected $expected, got $actual."
+            exit 1
+          fi
+          mv "$BINARY.download" "$BINARY"
+          chmod +x "$BINARY"
+          installed=true
+          echo "Using $ASSET from $url"
+        else
+          rm -f "$BINARY.download" "$BINARY.sha256"
+          if [ "$REQUIRED" = true ]; then
+            echo "::error::No $ASSET published at $url."
+            exit 1
+          fi
+          echo "No $ASSET published at $url; compiling the generator instead."
+        fi
+
+        echo "installed=$installed" >> "$GITHUB_OUTPUT"
+
+    # Compiling takes about half a minute, almost all of it resolving
+    # dependencies, so the result is kept against the source it came from.
+    - id: cache
+      if: steps.download.outputs.installed != 'true'
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.plan.outputs.binary }}
+        key: variable-font-generator-${{ steps.plan.outputs.platform }}-${{ steps.plan.outputs.source-hash }}
+
+    - if: >-
+        steps.download.outputs.installed != 'true' &&
+        steps.cache.outputs.cache-hit != 'true'
+      uses: dart-lang/setup-dart@v1
+      with:
+        sdk: ${{ inputs.dart-sdk }}
+
+    - if: >-
+        steps.download.outputs.installed != 'true' &&
+        steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      env:
+        BINARY: ${{ steps.plan.outputs.binary }}
+      run: ./tool/build_binary.sh --output "$BINARY"
+
+    - id: build
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        BINARY: ${{ steps.plan.outputs.binary }}
+        SUMMARY: ${{ steps.plan.outputs.summary }}
+        ICONS: ${{ inputs.icons }}
+        OUTPUT: ${{ inputs.output }}
+        FAMILY: ${{ inputs.family }}
+        BINDINGS: ${{ inputs.bindings }}
+        CLASS_NAME: ${{ inputs.class-name }}
+        EXTENSION_NAME: ${{ inputs.extension-name }}
+        PACKAGE: ${{ inputs.package }}
+        LIBRARY: ${{ inputs.library }}
+        NAMING: ${{ inputs.naming }}
+        INDEX: ${{ inputs.index }}
+        PUBSPEC: ${{ inputs.pubspec }}
+        MIRROR_RTL: ${{ inputs.mirror-rtl }}
+        AXES: ${{ inputs.axes }}
+        UNITS_PER_EM: ${{ inputs.units-per-em }}
+        CURVE_TOLERANCE: ${{ inputs.curve-tolerance }}
+        START_CODEPOINT: ${{ inputs.start-codepoint }}
+        CODEPOINTS: ${{ inputs.codepoints }}
+        FONT_VERSION: ${{ inputs.font-version }}
+        COPYRIGHT: ${{ inputs.copyright }}
+        DESIGNER: ${{ inputs.designer }}
+        MANUFACTURER: ${{ inputs.manufacturer }}
+        LICENSE: ${{ inputs.license }}
+        LICENSE_URL: ${{ inputs.license-url }}
+        VENDOR_ID: ${{ inputs.vendor-id }}
+        PREVIEW: ${{ inputs.preview }}
+        RECURSIVE: ${{ inputs.recursive }}
+        REPRODUCIBLE: ${{ inputs.reproducible }}
+      run: |
+        set -euo pipefail
+
+        # `required: true` on an input is documentation rather than a check;
+        # the runner does not enforce it, and an input given as empty reaches
+        # here as the empty string rather than as its default.
+        if [ -z "$ICONS" ]; then
+          echo "::error::icons: is required. Give it the directory holding the SVG files."
+          exit 1
+        fi
+        if [ -z "$OUTPUT" ] || [ -z "$FAMILY" ]; then
+          echo "::error::output: and family: cannot be empty."
+          exit 1
+        fi
+
+        # An input is a string whatever it looks like, so the flags are read
+        # the way a person would write them rather than only as `true`.
+        enabled() {
+          case "$(echo "$1" | tr '[:upper:]' '[:lower:]')" in
+            true|yes|on|1) return 0 ;;
+            *) return 1 ;;
+          esac
+        }
+
+        arguments=(build "$ICONS" --output "$OUTPUT" --family "$FAMILY")
+
+        option() {
+          if [ -n "$2" ]; then
+            arguments+=("$1" "$2")
+          fi
+        }
+        option --naming "$NAMING"
+        option --axes "$AXES"
+        option --units-per-em "$UNITS_PER_EM"
+        option --curve-tolerance "$CURVE_TOLERANCE"
+        option --start-codepoint "$START_CODEPOINT"
+        option --codepoints "$CODEPOINTS"
+        option --font-version "$FONT_VERSION"
+        option --copyright "$COPYRIGHT"
+        option --designer "$DESIGNER"
+        option --manufacturer "$MANUFACTURER"
+        option --license "$LICENSE"
+        option --license-url "$LICENSE_URL"
+        option --vendor-id "$VENDOR_ID"
+        option --mirror-rtl "$MIRROR_RTL"
+        option --preview "$PREVIEW"
+        option --package "$PACKAGE"
+        option --library "$LIBRARY"
+
+        if enabled "$BINDINGS"; then
+          option --class-name "$CLASS_NAME"
+          option --extension-name "$EXTENSION_NAME"
+          if enabled "$INDEX"; then
+            arguments+=(--index)
+          fi
+        else
+          arguments+=(--no-bindings)
+        fi
+        if enabled "$PUBSPEC"; then
+          arguments+=(--pubspec)
+        fi
+        if enabled "$RECURSIVE"; then
+          arguments+=(--recursive)
+        fi
+        if ! enabled "$REPRODUCIBLE"; then
+          arguments+=(--no-reproducible)
+        fi
+
+        "$BINARY" "${arguments[@]}" --summary "$SUMMARY"
+
+        cat "$SUMMARY" >> "$GITHUB_OUTPUT"

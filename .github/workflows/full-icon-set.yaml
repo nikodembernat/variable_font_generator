@@ -26,9 +26,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dart-lang/setup-dart@v1
-        with:
-          sdk: stable
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -42,26 +39,30 @@ jobs:
             https://github.com/lucide-icons/lucide.git build/lucide
           cd build/lucide && git sparse-checkout set icons
 
-      - name: build the font
-        run: |
-          cd packages/variable_font_generator
-          dart pub get
-          dart run bin/variable_font_generator.dart build ../../build/lucide/icons \
-            --output ../../build/full \
-            --family LucideVariable \
-            --class-name LucideIcons \
-            --package lucide_icons \
-            --index \
-            --pubspec \
-            --codepoints ../../build/full/codepoints.json \
-            --preview ../../build/full/preview.png
+      # Through the action rather than the command line, so that the largest
+      # input anyone is likely to give it goes through the same path everyone
+      # else uses.
+      - id: font
+        uses: ./
+        with:
+          icons: build/lucide/icons
+          output: build/full
+          family: LucideVariable
+          class-name: LucideIcons
+          extension-name: LucideIconData
+          package: lucide_icons
+          index: true
+          pubspec: true
+          codepoints: build/full/codepoints.json
+          preview: build/full/preview.png
+          version: source
 
       - name: verify it
         run: |
           python3 tool/verify_font.py \
             --icons build/lucide/icons \
-            --font build/full/lib/fonts/LucideVariable.ttf \
-            --codepoints build/full/codepoints.json
+            --font '${{ steps.font.outputs.font }}' \
+            --codepoints '${{ steps.font.outputs.codepoints }}'
 
       - uses: actions/upload-artifact@v4
         with:
@@ -69,5 +70,6 @@ jobs:
           path: |
             build/full/lib/fonts/LucideVariable.ttf
             build/full/lib/lucide_icons.dart
+            build/full/lib/lucide_icons_index.dart
             build/full/codepoints.json
             build/full/preview.png

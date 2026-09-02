@@ -78,6 +78,99 @@ jobs:
           path: packages/lucide_variable_icons/test/failures/
           if-no-files-found: ignore
 
+  # The reusable action, run the way anybody else would run it, on each of the
+  # three operating systems GitHub offers. It compiles the generator from this
+  # checkout rather than downloading a release, which is what a pull request
+  # needs: the point is to catch a change here breaking the action before it is
+  # tagged, not to test the last release again.
+  action:
+    name: the action on ${{ matrix.runner }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: icons
+        uses: ./
+        with:
+          icons: packages/variable_font_generator/test/fixtures/lucide
+          output: build/action
+          family: ActionIcons
+          class-name: ActionIcons
+          extension-name: ActionIconData
+          package: action_icons
+          index: true
+          pubspec: true
+          codepoints: build/action/codepoints.json
+          preview: build/action/preview.png
+          mirror-rtl: arrow-right,navigation
+          version: source
+
+      - name: check what it wrote
+        env:
+          FONT: ${{ steps.icons.outputs.font }}
+          BINDINGS: ${{ steps.icons.outputs.bindings }}
+          INDEX: ${{ steps.icons.outputs.index }}
+          PUBSPEC: ${{ steps.icons.outputs.pubspec }}
+          CODEPOINTS: ${{ steps.icons.outputs.codepoints }}
+          PREVIEW: ${{ steps.icons.outputs.preview }}
+          ICON_COUNT: ${{ steps.icons.outputs.icon-count }}
+          FONT_BYTES: ${{ steps.icons.outputs.font-bytes }}
+        run: |
+          # Windows paths come back with backslashes, which is right for the
+          # runner and wrong for the shell reading them here.
+          FONT=${FONT//\\//}
+          BINDINGS=${BINDINGS//\\//}
+          INDEX=${INDEX//\\//}
+          PUBSPEC=${PUBSPEC//\\//}
+          CODEPOINTS=${CODEPOINTS//\\//}
+          PREVIEW=${PREVIEW//\\//}
+
+          for path in "$FONT" "$BINDINGS" "$INDEX" "$PUBSPEC" "$CODEPOINTS" "$PREVIEW"; do
+            test -s "$path" || { echo "::error::$path is missing or empty"; exit 1; }
+          done
+
+          test "$ICON_COUNT" = 45
+          test "$FONT_BYTES" -gt 100000
+
+          # A package build puts the font where other projects can reach it,
+          # and every icon has to name that package for Flutter to find it.
+          case "$FONT" in
+            */lib/fonts/ActionIcons.ttf) ;;
+            *) echo "::error::the font landed at $FONT"; exit 1 ;;
+          esac
+          grep -q "extension type const ActionIconData" "$BINDINGS"
+          grep -q "abstract final class ActionIcons" "$BINDINGS"
+          grep -q "fontPackage: 'action_icons'" "$BINDINGS"
+          grep -q "matchTextDirection: true" "$BINDINGS"
+          grep -c "static const ActionIconData" "$BINDINGS" | grep -qx 45
+          grep -q "family: ActionIcons" "$PUBSPEC"
+          # A TrueType outline font starts with the version 1.0 sfnt tag.
+          head -c 4 "$FONT" | od -An -tx1 | tr -d ' \n' | grep -qx 00010000
+
+      # The same icons again with the bindings turned off, which is the path a
+      # project that is not Flutter's takes.
+      - id: font-only
+        uses: ./
+        with:
+          icons: packages/variable_font_generator/test/fixtures/lucide
+          output: build/font-only
+          family: FontOnly
+          bindings: false
+          version: source
+
+      - name: check it wrote a font and nothing else
+        env:
+          FONT: ${{ steps.font-only.outputs.font }}
+          BINDINGS: ${{ steps.font-only.outputs.bindings }}
+        run: |
+          test -s "${FONT//\\//}"
+          test -z "$BINDINGS"
+          test ! -e build/font-only/icons.dart
+
   # Everything above checks the generator against its own idea of what a font
   # is. This job checks it against everyone else's: the OpenType Sanitizer
   # decides whether a browser would load the file, fontTools parses every table,

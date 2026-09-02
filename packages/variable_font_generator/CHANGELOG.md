@@ -10,6 +10,8 @@
   Pointing it at `$GITHUB_OUTPUT` turns those paths into a step's outputs.
 - The class and extension type names are checked before anything is written,
   rather than being emitted as Dart that will not compile.
+- The repository is now a reusable GitHub action, and publishes the generator
+  as a compiled executable for Linux, macOS and Windows.
 - **Breaking**: `BuildResult.libraryPath` is nullable, because a build without
   bindings writes no library.
 
