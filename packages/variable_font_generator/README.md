@@ -286,6 +286,10 @@ The package does not check itself against itself.
 - The generated font is rasterised with **FreeType** and the source SVGs with
   **resvg**, and the two pictures are compared. Over all 1798 Lucide icons the
   mean overlap is 0.992 and the worst is 0.973.
+- The same comparison runs away from the default weight, against the artwork
+  re-stroked to the width that weight means. Over the fixture set the mean is
+  0.982 at weight 100 and 0.992 at weight 700. It is a weaker agreement than at
+  the default on purpose; see the limitations below.
 - The **OpenType Sanitizer** — the validator Chrome and Firefox use to decide
   whether to load a web font — accepts the output.
 - **fontTools** parses every table and instantiates the font at chosen axis
@@ -311,6 +315,23 @@ The package does not check itself against itself.
   use them; if yours does, flatten it first.
 - A `transform` with a non-uniform scale scales the stroke by the geometric mean
   of the two factors, rather than making it elliptical as SVG would.
+- Whether a stroke is thick enough to have swallowed the inside of the shape it
+  outlines is decided once, at the default weight, and holds at every other.
+  It has to be: the answer changes with the weight, and what changes with it is
+  the number of contours, which is the one thing variation deltas cannot
+  express. So a shape that has no room for a hole at the default keeps none at a
+  lighter weight, where the artwork would have one — the eyes of Lucide's skull
+  are the clearest case. This is the largest disagreement with the artwork the
+  weight sweep measures.
+- Where the artwork's own stroking degenerates, the generator does not follow
+  it. A circle of radius 0.5 stroked three units wide has an inner boundary of
+  negative radius, which SVG's fill rule turns into a pinhole; the generated
+  glyph is a solid dot. That is a deliberate departure and it costs overlap
+  against the reference — `chart-scatter` at weight 700 is the worst of them.
+- Heavy weights can leave small spurs where a stroke turns sharply back on
+  itself, visible at the jaw of the skull at weight 700. The inner side of a
+  join is clamped for the weight the outline was built at, and the clamp does
+  not travel with the weight.
 - Composite glyphs are never written, so identical icons do not share outlines.
 - `gvar` dominates the file size — about 6 KB per icon with all four of the
   `Icon` axes, of which a fifth is the half-fill master that keeps a detail from

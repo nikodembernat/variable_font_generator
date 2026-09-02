@@ -284,6 +284,72 @@ def check_rendering(font_path: str, icon_dir: str, icon_names: list[str],
         print(f'  wrote {report}')
 
 
+def check_weights(font_path: str, icon_dir: str, icon_names: list[str],
+                  codepoints: dict, size: int, minimum: float) -> None:
+    """Compare the font against the artwork at weights other than the default.
+
+    check_rendering only ever looks at the default instance, so for a long
+    while nothing checked that a glyph is the right *shape* anywhere else on
+    the weight axis — only that it drew more ink when asked to be heavier. A
+    stroked icon has an obvious reference at any weight: the same SVG with its
+    stroke-width scaled to match, which is what the weight axis means.
+
+    The scale factors are written down here rather than read from the font on
+    purpose. This is the independent check; it should say what the axis is
+    supposed to do, not ask the font what it did.
+    """
+    print(f'Rendering at other weights, against the artwork re-stroked to match')
+    import re
+
+    import freetype
+    import resvg_py
+    from PIL import Image
+
+    axes = _fvar_axes(font_path)
+    tags = [a.axisTag for a in axes]
+    defaults = {a.axisTag: a.defaultValue for a in axes}
+    if 'wght' not in tags:
+        print('  --   no weight axis to check')
+        return
+
+    face = freetype.Face(font_path)
+    face.set_char_size(size * 64)
+
+    scores = {}
+    for weight, factor in ((100, 0.5), (700, 1.5)):
+        worst = (2.0, '')
+        values = []
+        for name in icon_names:
+            source = open(os.path.join(icon_dir, f'{name}.svg')).read()
+            widths = re.findall(r'stroke-width="([0-9.]+)"', source)
+            if not widths:
+                continue
+            scaled = re.sub(r'stroke-width="([0-9.]+)"',
+                            lambda m: f'stroke-width="{float(m.group(1)) * factor}"',
+                            source)
+            reference_bytes = resvg_py.svg_to_bytes(
+                svg_string=scaled, width=size, height=size)
+            reference = np.asarray(
+                Image.open(io.BytesIO(bytes(reference_bytes))).convert('RGBA'),
+                dtype=np.int16)[..., 3]
+            coords = [weight if tag == 'wght' else defaults[tag] for tag in tags]
+            rendered = render_glyph(face, codepoints[name], size, coords)
+            score = best_overlap(reference, rendered.astype(np.int16))
+            values.append(score)
+            worst = min(worst, (score, name))
+        array = np.array(values)
+        scores[weight] = array
+        print(f'  weight {weight}, stroke-width x{factor}: mean '
+              f'{array.mean():.5f}, worst {worst[0]:.5f} ({worst[1]})')
+        if array.min() >= minimum:
+            ok(f'every icon at or above {minimum}')
+        else:
+            below = sorted((s, n) for s, n in zip(values, icon_names)
+                           if s < minimum)[:5]
+            fail('below {}: {}'.format(
+                minimum, ', '.join(f'{n} {s:.4f}' for s, n in below)))
+
+
 def check_variations(font_path: str, icon_names: list[str], codepoints: dict,
                      size: int) -> None:
     print('Variations, as FreeType applies them')
@@ -341,6 +407,12 @@ def main() -> int:
                         help='pixels per side when rendering (default 384)')
     parser.add_argument('--min-iou', type=float, default=0.97,
                         help='lowest acceptable overlap per icon (default 0.97)')
+    parser.add_argument('--min-weight-iou', type=float, default=0.92,
+                        help='lowest acceptable overlap away from the default '
+                             'weight. Lower than --min-iou on purpose: at the '
+                             'far ends of the axis the artwork\'s own stroking '
+                             'degenerates on small shapes, and the generator '
+                             'deliberately does not follow it there')
     parser.add_argument('--report', help='write a side-by-side comparison image here')
     parser.add_argument('--limit', type=int, help='only check the first N icons')
     arguments = parser.parse_args()
@@ -358,6 +430,8 @@ def main() -> int:
     check_variations(arguments.font, names, codepoints, arguments.size)
     check_rendering(arguments.font, arguments.icons, names, codepoints,
                     arguments.size, arguments.min_iou, arguments.report)
+    check_weights(arguments.font, arguments.icons, names, codepoints,
+                  arguments.size, arguments.min_weight_iou)
 
     print()
     if fail.count:
