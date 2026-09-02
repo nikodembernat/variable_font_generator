@@ -41,7 +41,7 @@ This repository is a reusable action. Point it at a directory of SVG files and
 it writes the font, and the Flutter bindings if you want them:
 
 ```yaml
-- uses: nikodembernat/variable_font_generator@main
+- uses: nikodembernat/variable_font_generator@master
   id: icons
   with:
     icons: assets/icons
@@ -70,7 +70,7 @@ the result against the hash of that source, because only a tag says which
 published binary matches the source being run. Either way there is nothing to
 install in the workflow.
 
-So `@main` always works, and always compiles; `@v0.2.0` fixes the version and
+So `@master` always works, and always compiles; `@v0.2.0` fixes the version and
 downloads.
 
 ### Inputs
@@ -112,7 +112,7 @@ The font and the bindings are generated files, so a workflow can keep them up to
 date rather than asking a person to remember:
 
 ```yaml
-- uses: nikodembernat/variable_font_generator@main
+- uses: nikodembernat/variable_font_generator@master
   with:
     icons: assets/icons
     output: packages/my_icons
