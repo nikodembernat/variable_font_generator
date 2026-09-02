@@ -76,6 +76,13 @@ packages/my_icons/
     └── my_icons.dart            # class MyIcons { static const IconData house = ...; }
 ```
 
+Every generated Dart file opens with `// ignore_for_file: type=lint` and
+`// dart format off`. It is machine output: a formatter would rewrite it to no
+purpose, and a lint would report something nobody can go and fix, since editing
+the file by hand is the one thing its own header tells you not to do. It also
+means the file is exactly what the generator wrote, so a checked-in copy can be
+compared against a fresh build byte for byte.
+
 Naming a class is the whole of the request for bindings: without `--class-name`
 the font is written alone, which is what a project that is not Flutter's wants.
 The class names the font too, so `--family` is only needed when the font should

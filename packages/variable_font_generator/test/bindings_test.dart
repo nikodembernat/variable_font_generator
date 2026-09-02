@@ -254,6 +254,31 @@ void main() {
       font: FontReference.package(family: 'MyFam', package: 'my_pkg'),
     );
 
+    test('tells the formatter and the analyser to leave it alone', () {
+      // Machine output: a formatter would rewrite it to no purpose, and a lint
+      // would report something nobody can go and fix, since editing the file
+      // by hand is the one thing its own header tells you not to do.
+      for (final source in [
+        packageGenerator.generate(icons),
+        packageGenerator.generateIndex(icons, libraryImport: 'a.dart'),
+      ]) {
+        final header = source.split('\n\n').first.split('\n');
+        expect(header, contains('// ignore_for_file: type=lint'));
+        expect(header, contains('// dart format off'));
+        expect(
+          header.indexOf('// dart format off'),
+          lessThan(
+            source
+                .split('\n')
+                .indexOf("import 'package:flutter/widgets.dart';"),
+          ),
+          reason:
+              'the formatter stops where it is told, so it has to be told '
+              'before there is anything to format',
+        );
+      }
+    });
+
     test('declares a tree-shakeable abstract final icon class', () {
       final source = packageGenerator.generate(icons);
       expect(source, contains('@staticIconProvider'));
