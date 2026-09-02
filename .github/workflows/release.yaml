@@ -141,7 +141,9 @@ jobs:
   publish:
     name: publish the release
     needs: binaries
-    if: startsWith(github.ref, 'refs/tags/v')
+    # `inputs` is empty for a tag push, so this reads as true there, and a
+    # dispatch defaults to leaving the binaries as an artifact.
+    if: startsWith(github.ref, 'refs/tags/v') && !inputs.dry-run
     runs-on: ubuntu-latest
     permissions:
       contents: write
