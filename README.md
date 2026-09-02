@@ -7,10 +7,6 @@ The generated font responds to the four axes Flutter's `Icon` widget already
 drives — `fill`, `weight`, `grade` and `opticalSize` — so one file covers what
 would otherwise be a family of them.
 
-<!-- The picture below is the fill axis running from 0 to 1, drawn by Flutter
-     from the generated font. It is a checked-in golden test. -->
-![Icons at fill 0, 0.25, 0.5, 0.75 and 1](packages/lucide_variable_icons/test/goldens/fill.png)
-
 ## Layout
 
 | | |
