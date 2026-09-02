@@ -57,11 +57,12 @@ it writes the font, and the Flutter bindings if you want them:
 - run: echo "${{ steps.icons.outputs.icon-count }} icons in ${{ steps.icons.outputs.font }}"
 ```
 
-`class-name` names the class holding every icon and `extension-name` declares an
-extension type wrapping `IconData` for them to have, so a signature can ask for
-an icon from this set rather than any icon at all. Leave `extension-name` out
-and the icons stay plain `IconData`; set `bindings: false` and only the font is
-written.
+`class-name` names the class holding every icon, and naming one is the whole of
+the request for bindings: leave it out and the font is written on its own, which
+is what a project that is not Flutter's wants. `extension-name` declares an
+extension type wrapping `IconData` for the icons to have, so a signature can ask
+for an icon from this set rather than any icon at all; leave that out and they
+stay plain `IconData`.
 
 The action runs a compiled binary. Pinned to a version tag it takes the one
 published with that release; pinned to anything else — a branch, a commit, a
@@ -75,7 +76,8 @@ downloads.
 
 ### Inputs
 
-Every option of the command line, named the same way. The ones most builds
+Every option of the command line, named the same way, except that there is no
+`--no-bindings` to pass: leaving `class-name` out says it. The ones most builds
 touch:
 
 | input | | |
@@ -83,9 +85,8 @@ touch:
 | `icons` | **required** | the directory of SVG files |
 | `output` | `build/icons` | where everything is written |
 | `family` | `CustomIcons` | the font family name |
-| `bindings` | `true` | whether to write the Flutter bindings at all |
-| `class-name` | the family name | the generated class, such as `LucideIcons` |
-| `extension-name` | — | an extension type over `IconData`, such as `LucideIconData` |
+| `class-name` | — | the class to hold the icons, such as `LucideIcons`. Naming one asks for the bindings |
+| `extension-name` | — | an extension type over `IconData`, such as `LucideIconData`. Needs `class-name` |
 | `package` | — | the Flutter package the font ships in |
 | `index` | `false` | also list every icon by name in a second library |
 | `pubspec` | `false` | write a `pubspec.yaml` declaring the font |
@@ -118,6 +119,7 @@ date rather than asking a person to remember:
     output: packages/my_icons
     family: MyIcons
     package: my_icons
+    class-name: MyIcons
     pubspec: true
     codepoints: packages/my_icons/codepoints.json
 

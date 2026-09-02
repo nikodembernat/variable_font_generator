@@ -1,7 +1,7 @@
 name: Variable icon font
 description: >-
-  Build a variable OpenType icon font, and optionally the Flutter bindings for
-  it, from a directory of SVG icons.
+  Build a variable OpenType icon font, and the Flutter bindings for it, from a
+  directory of SVG icons.
 author: Nikodem Bernat
 
 branding:
@@ -19,23 +19,19 @@ inputs:
     description: The font family name. Also names the generated font file.
     default: CustomIcons
 
-  bindings:
-    description: >-
-      Whether to write the Flutter bindings. Set it to false for a font going
-      somewhere that is not a Flutter project.
-    default: 'true'
   class-name:
     description: >-
-      The generated Dart class holding every icon, such as LucideIcons.
-      Defaults to the family name.
+      The Dart class to hold every icon, such as LucideIcons. Naming one is
+      what asks for the Flutter bindings; leave it out and the font is written
+      on its own, which is what a project that is not Flutter's wants.
     default: ''
   extension-name:
     description: >-
       Declares an extension type of this name wrapping IconData, such as
       LucideIconData, and gives every generated icon that type. It lets a
       signature ask for an icon from this set rather than any icon at all, and
-      costs nothing at run time. Needs Dart 3.3 in the project the bindings
-      land in.
+      costs nothing at run time. Left out, the icons are plain IconData.
+      Needs class-name, and Dart 3.3 in the project the bindings land in.
     default: ''
   package:
     description: >-
@@ -375,7 +371,6 @@ runs:
         ICONS: ${{ inputs.icons }}
         OUTPUT: ${{ inputs.output }}
         FAMILY: ${{ inputs.family }}
-        BINDINGS: ${{ inputs.bindings }}
         CLASS_NAME: ${{ inputs.class-name }}
         EXTENSION_NAME: ${{ inputs.extension-name }}
         PACKAGE: ${{ inputs.package }}
@@ -446,15 +441,29 @@ runs:
         option --mirror-rtl "$MIRROR_RTL"
         option --preview "$PREVIEW"
         option --package "$PACKAGE"
-        option --library "$LIBRARY"
 
-        if enabled "$BINDINGS"; then
-          option --class-name "$CLASS_NAME"
+        # Naming a class is the whole of the request for bindings. Anything
+        # else that describes them has nothing to attach to without one.
+        if [ -n "$CLASS_NAME" ]; then
+          arguments+=(--class-name "$CLASS_NAME")
           option --extension-name "$EXTENSION_NAME"
+          option --library "$LIBRARY"
           if enabled "$INDEX"; then
             arguments+=(--index)
           fi
         else
+          describes_bindings=''
+          if [ -n "$EXTENSION_NAME" ]; then
+            describes_bindings=extension-name
+          elif [ -n "$LIBRARY" ]; then
+            describes_bindings=library
+          elif enabled "$INDEX"; then
+            describes_bindings=index
+          fi
+          if [ -n "$describes_bindings" ]; then
+            echo "::error::$describes_bindings: describes the Dart bindings, which are only written when class-name: names a class to put them in."
+            exit 1
+          fi
           arguments+=(--no-bindings)
         fi
         if enabled "$PUBSPEC"; then
