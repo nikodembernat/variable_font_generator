@@ -4,7 +4,7 @@ import 'package:args/command_runner.dart';
 import 'package:variable_font_generator/src/cli/build_command.dart';
 
 /// The version reported by `--version`.
-const packageVersion = '0.2.0';
+const packageVersion = '0.1.0';
 
 /// Builds the command line interface.
 CommandRunner<int> buildCommandRunner({Stdout? output}) =>
