@@ -350,6 +350,11 @@ runs:
       uses: dart-lang/setup-dart@v1
       with:
         sdk: ${{ inputs.dart-sdk }}
+        # The analyzer problem matcher it registers by default resolves its
+        # file against the workspace rather than against the action, which is
+        # an error when the action is nested inside this one. Nothing here
+        # analyses anything, so there is nothing to match.
+        problem-matcher: false
 
     - if: >-
         steps.download.outputs.installed != 'true' &&
