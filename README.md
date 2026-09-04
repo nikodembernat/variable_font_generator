@@ -1,4 +1,4 @@
-# variable_font_generator
+# Variable Font Generator
 
 A Dart tool that turns a directory of SVG icons into a **variable** OpenType
 icon font, and writes the Flutter bindings for it.
