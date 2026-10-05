@@ -122,17 +122,20 @@ void main() {
     );
   });
 
-  testWidgets('the optical size axis thins the strokes as it grows', (
+  testWidgets('the optical size axis thickens the strokes below 24', (
     tester,
   ) async {
+    // From 24 up the strokes are the artwork's own, which is what lets a
+    // plain `Icon` draw them: Flutter sends an optical size of 48 whenever none
+    // is given.
     await expectSheet(
       tester,
       'optical_size',
       settings: const [
         IconThemeData(opticalSize: 20),
+        IconThemeData(opticalSize: 22),
         IconThemeData(opticalSize: 24),
-        IconThemeData(opticalSize: 32),
-        IconThemeData(opticalSize: 40),
+        IconThemeData(opticalSize: 36),
         IconThemeData(opticalSize: 48),
       ],
     );

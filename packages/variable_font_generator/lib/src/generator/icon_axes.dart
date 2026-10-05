@@ -139,9 +139,15 @@ final class IconAxisSet {
 
   /// The `opsz` axis, which compensates for the size an icon is drawn at.
   ///
-  /// A shape drawn small needs proportionally thicker strokes to stay legible,
-  /// and one drawn large needs thinner ones to avoid looking heavy, so the
-  /// stroke scale runs the opposite way to the axis.
+  /// A shape drawn smaller than the grid it was designed on needs
+  /// proportionally thicker strokes to stay legible, so the strokes thicken
+  /// towards the minimum. From the default up they keep the artwork's own
+  /// width, and that half of the axis is deliberately flat: Flutter's `Icon`
+  /// sends an optical size of 48 whenever none is given, whatever size the
+  /// icon is drawn at, so anything other than the artwork there would be what
+  /// every plain `Icon(...)` draws. A browser's automatic optical sizing,
+  /// which passes the font size, gets the artwork at 24 pixels and above for
+  /// the same reason.
   static const opticalSizeAxis = IconAxis(
     axis: FontAxis(
       tag: 'opsz',
@@ -151,7 +157,7 @@ final class IconAxisSet {
       maximum: 48,
     ),
     scaleAtMinimum: 1.06,
-    scaleAtMaximum: 0.78,
+    scaleAtMaximum: 1,
   );
 
   /// The `wdth` axis, which narrows or widens the shapes.
@@ -239,6 +245,11 @@ final class IconAxisSet {
   /// design space needs a master at every corner where those two effects meet —
   /// the default, each axis on its own at both ends, and each stroke axis
   /// combined with a full fill.
+  ///
+  /// An end of an axis that changes nothing gets no master. The outline there
+  /// is the default one, which is what the font gives with no master at all,
+  /// and a master repeating it would only store deltas of zero for every point
+  /// of every glyph.
   List<AxisLocation> get masterLocations {
     final scaleAxes = [
       for (final axis in axes)
@@ -250,8 +261,12 @@ final class IconAxisSet {
     ];
 
     List<double> extremesOf(IconAxis axis) => [
-      if (axis.axis.minimum < axis.axis.defaultValue) -1.0,
-      if (axis.axis.maximum > axis.axis.defaultValue) 1.0,
+      if (axis.axis.minimum < axis.axis.defaultValue &&
+          (axis.controlsFill || axis.scaleAtMinimum != 1))
+        -1.0,
+      if (axis.axis.maximum > axis.axis.defaultValue &&
+          (axis.controlsFill || axis.scaleAtMaximum != 1))
+        1.0,
     ];
 
     return [

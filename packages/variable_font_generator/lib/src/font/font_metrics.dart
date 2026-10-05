@@ -9,13 +9,20 @@ import 'package:meta/meta.dart';
 /// [ascender] minus [descender] equals [unitsPerEm] there is no leftover
 /// leading at all, so a glyph drawn from [descender] up to [ascender] fills the
 /// icon's square precisely.
+///
+/// The whole em sits above the baseline. Flutter rounds a font's ascent to a
+/// whole logical pixel before placing the baseline, so an ascender of 800 puts
+/// the baseline of a 24 pixel icon at 19 pixels rather than 19.2, and the icon
+/// is drawn a fifth of a pixel high; at other sizes it lands up to half a
+/// pixel high or low. An ascender of a whole em is a whole number of pixels at
+/// every whole-pixel size, so the icon lands where the artwork put it.
 @immutable
 final class FontMetrics {
   /// Creates metrics.
   const FontMetrics({
     this.unitsPerEm = 1000,
-    this.ascender = 800,
-    this.descender = -200,
+    this.ascender = 1000,
+    this.descender = 0,
     this.lineGap = 0,
   });
 

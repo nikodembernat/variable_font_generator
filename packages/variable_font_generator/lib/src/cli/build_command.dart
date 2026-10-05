@@ -82,7 +82,7 @@ final class BuildCommand extends Command<int> {
           'FILL': 'Closes the holes in outlined shapes. Icon.fill.',
           'wght': 'Thickens the strokes. Icon.weight.',
           'GRAD': 'Thickens them more finely. Icon.grade.',
-          'opsz': 'Thins them as the icon grows. Icon.opticalSize.',
+          'opsz': 'Thickens them below 24. Icon.opticalSize.',
           'wdth':
               'Narrows or widens the shapes. Off by default: the Icon widget '
               'cannot drive it, so it needs a TextStyle fontVariations entry.',
@@ -270,11 +270,7 @@ final class BuildCommand extends Command<int> {
         for (final axis in IconAxisSet.everything.axes)
           if (requested.contains(axis.axis.tag)) axis,
       ]),
-      metrics: FontMetrics(
-        unitsPerEm: unitsPerEm,
-        ascender: (unitsPerEm * 0.8).round(),
-        descender: -(unitsPerEm * 0.2).round(),
-      ),
+      metrics: FontMetrics(unitsPerEm: unitsPerEm, ascender: unitsPerEm),
       identifierStyle: results.option('naming') == 'snake'
           ? IdentifierStyle.snakeCase
           : IdentifierStyle.camelCase,

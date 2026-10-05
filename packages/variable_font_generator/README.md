@@ -5,7 +5,8 @@ Flutter bindings for it.
 
 The font responds to the four axes Flutter's `Icon` widget already knows how to
 drive, so an icon can be animated from outlined to filled, thickened to match
-the text beside it, or thinned as it grows — without shipping a second file.
+the text beside it, or kept legible when it is drawn small — without shipping a
+second file.
 
 ```dart
 Icon(MyIcons.house, size: 32, fill: 1, weight: 700)
@@ -16,7 +17,7 @@ Icon(MyIcons.house, size: 32, fill: 1, weight: 700)
 | `FILL` | `fill` | 0 – 1 | closes the holes in outlined shapes, cutting any detail strokes back out of the solid |
 | `wght` | `weight` | 100 – 700 | thickens the strokes |
 | `GRAD` | `grade` | -50 – 200 | thickens them more finely, for matching surrounding text |
-| `opsz` | `opticalSize` | 20 – 48 | thins them as the icon grows, so it reads the same at any size |
+| `opsz` | `opticalSize` | 20 – 48 | thickens them below 24, so a small icon stays legible |
 | `wdth` | — | 75 – 125 | narrows or widens the shapes, keeping the strokes' thickness |
 
 Those four are every axis `Icon` can drive. `wdth` is off by default because
@@ -127,8 +128,8 @@ nothing at build time either. An extension type is erased during compilation, so
 the values stay `IconData` instances and Flutter's icon tree shaker still finds
 them. (There is no subclass to compare it against in any case: `IconData` is a
 `final class`, so it cannot be extended.) A release build of an application
-drawing three of the 45 icons in the fixture font subsets it from 219 KB to
-12 KB, wrapper type or not.
+drawing three of the 45 icons in the fixture font subsets it from 265 KB to
+22 KB, wrapper type or not.
 
 Extension types are a Dart 3.3 feature, so the project the bindings land in
 needs at least that. Leave the option out and the icons stay plain `IconData`.
@@ -278,14 +279,29 @@ Symbols uses so that an application can pass the same numbers to either. `wdth`
 scales the artwork horizontally and leaves the stroke's own thickness alone, the
 way a condensed typeface keeps its stem weight.
 
+`opsz` thickens the strokes from 24 down to 20 and leaves them alone from 24 up.
+That upper half is flat on purpose. `Icon` sends an optical size of 48 whenever
+it is given none, whatever size it draws at, so whatever the font does at 48 is
+what every unconfigured `Icon(...)` in an application draws; flat, that is the
+artwork exactly as it was drawn. A browser's automatic optical sizing, which
+passes the font size, gets the artwork at 24 pixels and above for the same
+reason.
+
+The whole em sits above the baseline: the ascender is the em and the descender
+is zero. Flutter rounds a font's ascent to a whole pixel before placing the
+baseline, so any other split moves the icon by however much that rounding takes
+off — a fifth of a pixel at 24, up to half a pixel at other sizes. An ascent of
+one em is a whole number of pixels at every whole-pixel size.
+
 An outline is affine in the stroke width, affine in the fill amount and affine
 in the width, but not in their products — filling moves a hole's boundary onto a
 point, and how far each point travels depends on how thick the stroke was and
 how far the shape was stretched. Variation interpolation is linear, so the
 design space carries a master wherever two effects meet: the default, each axis
 alone at both ends, and each of the others against a fill, both at the handover
-and at full. Twenty-one in all, or twenty-seven with `wdth`, which makes
-interpolation exact everywhere rather than approximate.
+and at full. Eighteen in all, or twenty-four with `wdth`, which makes
+interpolation exact everywhere rather than approximate. An end of an axis that
+changes nothing has no master, since the font gives the default there anyway.
 
 Stroke width and width need no master together, which is the whole reason for
 defining width the way it is: moving the centre line and leaving the stroke
@@ -349,11 +365,17 @@ The package does not check itself against itself.
   has come out at a negative radius and the fill rule punches it back through.
   The generated glyph is the solid dot, which costs overlap against a reference
   that is itself wrong — `chart-scatter` at weight 700 is the worst of them.
+- Contours overlap, and stay overlapping: merging them would change how many
+  points a glyph has from one weight to the next, which `gvar` cannot express.
+  Every glyph is flagged as overlapping, but a rasteriser that still counts an
+  edge twice where two contours cross draws a little heavy at small sizes — a
+  hundredth more ink at 20 pixels with FreeType, and nothing to speak of from
+  24 up.
 - Composite glyphs are never written, so identical icons do not share outlines.
-- `gvar` dominates the file size — about 6 KB per icon with all four of the
+- `gvar` dominates the file size — about 5 KB per icon with all four of the
   `Icon` axes, of which a fifth is the half-fill master that keeps a detail from
   cancelling against the gap replacing it. Use `--axes` to drop the ones you do
-  not need; a weight-only font is roughly a seventh of the size, and adding
-  `wdth` costs about a third more.
+  not need; a weight-only font's `gvar` is roughly a fifth of that, and adding
+  `wdth` costs about a quarter more.
 - There is no `slnt` or `ital` axis. Slanting an icon shears it, which needs a
   master against every other axis and is rarely what anyone wants from a symbol.

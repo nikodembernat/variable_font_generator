@@ -49,6 +49,14 @@ void main() {
       expect(parsed.lineGap, 0);
     });
 
+    test('puts the whole em above the baseline', () {
+      // Flutter rounds the ascent to a whole pixel before placing the
+      // baseline. Only an ascent of one em is whole at every whole-pixel size;
+      // anything else draws the icon up to half a pixel high or low.
+      expect(parsed.ascender, parsed.unitsPerEm);
+      expect(parsed.descender, 0);
+    });
+
     test('maps every icon to the glyph it belongs to', () {
       for (final icon in generated.icons) {
         expect(
@@ -153,6 +161,21 @@ void main() {
         }
       });
     }
+
+    test('draw the artwork where a plain Icon asks for it', () {
+      // With nothing said, Flutter's Icon sends fill 0, weight 400, grade 0
+      // and an optical size of 48, whatever size it draws at.
+      for (final icon in generated.icons) {
+        expectSameOutline(
+          parsed.glyphOutlineAt(
+            icon.glyphId,
+            axisValues: const {'FILL': 0, 'wght': 400, 'GRAD': 0, 'opsz': 48},
+          ),
+          parsed.glyphOutlines[icon.glyphId],
+          icon.name,
+        );
+      }
+    });
 
     // A position that moves several stroke axes at once is not a master: the
     // file reaches it by adding up what each of them does on its own. That is

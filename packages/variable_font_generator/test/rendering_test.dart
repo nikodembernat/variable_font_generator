@@ -22,7 +22,7 @@ const _positions = <String, Map<String, double>>{
   'filled': {'FILL': 1.0},
   'filled_bold': {'FILL': 1.0, 'wght': 700.0},
   'grade_max': {'GRAD': 200.0},
-  'optical_size_max': {'opsz': 48.0},
+  'optical_size_min': {'opsz': 20.0},
 };
 
 void main() {

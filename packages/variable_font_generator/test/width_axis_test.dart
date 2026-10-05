@@ -96,8 +96,8 @@ void main() {
     });
 
     test('adds six masters and no more', () {
-      expect(IconAxisSet.material.masterLocations, hasLength(21));
-      expect(axisSet.masterLocations, hasLength(27));
+      expect(IconAxisSet.material.masterLocations, hasLength(18));
+      expect(axisSet.masterLocations, hasLength(24));
       // Width pairs with fill, because filling moves a boundary onto a point
       // and how far it travels depends on the stretch. It pairs with both
       // positions the fill axis carries a master at, and with none of the

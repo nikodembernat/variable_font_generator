@@ -64,9 +64,9 @@ CoverageBitmap _render(Outline outline, int size) =>
       height: size,
       transform: Rasterizer.transformFor(
         minX: 0,
-        minY: -200,
+        minY: 0,
         maxX: 1000,
-        maxY: 800,
+        maxY: 1000,
         width: size,
         height: size,
       ),
@@ -771,8 +771,8 @@ void main() {
           )
           .evaluate(strokeScale: 1);
       final bounds = outline.bounds!;
-      expect(bounds.maxY, closeTo(800, 1e-9));
-      expect(bounds.minY, closeTo(-200, 1e-9));
+      expect(bounds.maxY, closeTo(1000, 1e-9));
+      expect(bounds.minY, closeTo(0, 1e-9));
       expect(bounds.minX, closeTo(500 - 1000 / 24, 1e-9));
       expect(bounds.maxX, closeTo(500 + 1000 / 24, 1e-9));
     });
@@ -815,8 +815,8 @@ void main() {
           .evaluate(strokeScale: 1);
       final bounds = outline.bounds!;
       // The half height view box is scaled to the full width and centred on
-      // the middle of the em box, which sits halfway from -200 to 800.
-      expect((bounds.minY + bounds.maxY) / 2, closeTo(300, 1e-9));
+      // the middle of the em box, which sits halfway from 0 to 1000.
+      expect((bounds.minY + bounds.maxY) / 2, closeTo(500, 1e-9));
       expect(bounds.minX, closeTo(0, 1e-9));
       expect(bounds.maxX, closeTo(1000, 1e-9));
     });
@@ -838,7 +838,7 @@ void main() {
       expect(bounds.maxX, closeTo(1000, 1e-9));
       // The line runs along the top edge of the view box, so it straddles the
       // ascender.
-      expect((bounds.minY + bounds.maxY) / 2, closeTo(800, 1e-9));
+      expect((bounds.minY + bounds.maxY) / 2, closeTo(1000, 1e-9));
     });
 
     test('leaves a filled but unstroked shape unmoved by the stroke scale', () {
