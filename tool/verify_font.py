@@ -183,6 +183,13 @@ def best_overlap(a: np.ndarray, b: np.ndarray) -> float:
     return best
 
 
+# FreeType's FT_OUTLINE_OVERLAP, which freetype-py does not name.
+_FT_OUTLINE_OVERLAP = 0x40
+
+# Code points FreeType could only draw without its overlap handling.
+overflow_fallbacks: list[int] = []
+
+
 def render_glyph(face, codepoint: int, size: int, coords=None) -> np.ndarray:
     """Draw one glyph the way Flutter's Icon widget would.
 
@@ -209,7 +216,21 @@ def render_glyph(face, codepoint: int, size: int, coords=None) -> np.ndarray:
         # negative delta. The units are 26.6 fixed point.
         freetype.Vector(0, -round((baseline - whole) * 64)),
     )
-    face.load_char(chr(codepoint), freetype.FT_LOAD_RENDER)
+    try:
+        face.load_char(chr(codepoint), freetype.FT_LOAD_RENDER)
+    except freetype.FT_Exception as error:
+        if 'raster overflow' not in str(error):
+            raise
+        # Every glyph is flagged as overlapping, and FreeType draws such a
+        # glyph at four times the size to count crossing edges once. On the
+        # most intricate icons that runs out of room at the sizes checked
+        # here, which says nothing about the font: drawn at its own size the
+        # glyph renders, a little heavy where contours cross.
+        face.load_char(chr(codepoint), freetype.FT_LOAD_DEFAULT)
+        outline = face.glyph._FT_GlyphSlot.contents.outline
+        outline.flags &= ~_FT_OUTLINE_OVERLAP
+        face.glyph.render(freetype.FT_RENDER_MODE_NORMAL)
+        overflow_fallbacks.append(codepoint)
 
     bitmap = face.glyph.bitmap
     if bitmap.rows == 0 or bitmap.width == 0:
@@ -432,6 +453,12 @@ def main() -> int:
                     arguments.size, arguments.min_iou, arguments.report)
     check_weights(arguments.font, arguments.icons, names, codepoints,
                   arguments.size, arguments.min_weight_iou)
+
+    if overflow_fallbacks:
+        drawn = sorted(set(overflow_fallbacks))
+        print(f'\nFreeType ran out of room drawing {len(drawn)} glyph(s) with '
+              f'its overlap handling, and drew them without it: '
+              + ', '.join(f'U+{cp:04X}' for cp in drawn))
 
     print()
     if fail.count:
